@@ -1,0 +1,39 @@
+plugins {
+    application
+    id("com.github.johnrengelman.shadow") version "8.1.1"
+    kotlin("jvm") version "1.9.21"
+    kotlin("plugin.serialization") version "2.0.0"
+}
+
+application {
+    mainClass.set("org.example.MainKt")
+}
+
+tasks.jar {
+    manifest.attributes["Main-Class"] = "org.example.MainKt"
+}
+
+group = "org.example"
+version = "1.0-SNAPSHOT"
+
+repositories {
+    mavenCentral()
+    maven(url = "https://jitpack.io")
+}
+
+dependencies {
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4")
+    // MongoDB Kotlin driver dependency
+    implementation("org.mongodb:mongodb-driver-kotlin-coroutine:4.10.1")
+    implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.2.0")
+    implementation("org.luaj:luaj-jse:3.0.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+kotlin {
+    jvmToolchain(8)
+}
