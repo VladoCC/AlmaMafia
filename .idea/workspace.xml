@@ -4,43 +4,39 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="40db9507-1966-4aa6-a5bc-2c691cfa7393" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradle.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradlew" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gradlew.bat" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/alibi.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/beauty.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/captain.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/cop.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/copycat.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/doctor.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/don.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/hacker.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/invincible.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/journalist.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/kamikazi.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/mafia.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/maniac.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/saturday/template.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/snitch.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/template.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/traitor.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scripts/yakuza.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/settings.gradle.kts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Main.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Tmp.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test.lua" afterDir="false" />
+    <list default="true" id="40db9507-1966-4aa6-a5bc-2c691cfa7393" name="Changes" comment="Current version">
+      <change afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/data/ads/1.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/alibi.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/beauty.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/captain.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/cop.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/copycat.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/doctor.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/don.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/hacker.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/invincible.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/journalist.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/kamikazi.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/mafia.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/maniac.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/saturday/template.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/snitch.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/template.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/test.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/traitor.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/mafia/scripts/yakuza.lua" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Command.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Config.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Db.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Migration.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Old.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/alibi.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/alibi.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Main.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Tmp.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Tmp.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,6 +51,7 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
+        <option value="Kotlin File" />
         <option value="Kotlin Class" />
       </list>
     </option>
@@ -63,10 +60,21 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.0.0/84cdfeb1d3e1b3f72cc4e0a3803c85c4727312f1/kotlin-stdlib-2.0.0-sources.jar!/jvmMain/kotlin/coroutines/intrinsics/IntrinsicsJvm.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.0.0/84cdfeb1d3e1b3f72cc4e0a3803c85c4727312f1/kotlin-stdlib-2.0.0-sources.jar!/jvmMain/kotlin/coroutines/jvm/internal/ContinuationImpl.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.6.4/f6a09bbc88df97983306c692aa43889ac78b98ef/kotlinx-coroutines-core-jvm-1.6.4-sources.jar!/commonMain/flow/Builders.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.6.4/f6a09bbc88df97983306c692aa43889ac78b98ef/kotlinx-coroutines-core-jvm-1.6.4-sources.jar!/commonMain/flow/Flow.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.6.4/f6a09bbc88df97983306c692aa43889ac78b98ef/kotlinx-coroutines-core-jvm-1.6.4-sources.jar!/commonMain/flow/FlowCollector.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.6.4/f6a09bbc88df97983306c692aa43889ac78b98ef/kotlinx-coroutines-core-jvm-1.6.4-sources.jar!/commonMain/internal/DispatchedTask.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.6.4/f6a09bbc88df97983306c692aa43889ac78b98ef/kotlinx-coroutines-core-jvm-1.6.4-sources.jar!/jvmMain/CoroutineContext.kt" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm/1.6.4/f6a09bbc88df97983306c692aa43889ac78b98ef/kotlinx-coroutines-core-jvm-1.6.4-sources.jar!/jvmMain/flow/internal/SafeCollector.kt" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-reactive/1.6.4/e35b77a7cb75319cc59d4a174c58739887c4aafc/kotlinx-coroutines-reactive-1.6.4.jar!/kotlinx/coroutines/reactive/PublisherAsFlow.class" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.mongodb/bson/4.10.1/3c673578ec9b47e69ae5c50c997770f32c928dcd/bson-4.10.1-sources.jar!/org/bson/types/ObjectId.java" root0="SKIP_INSPECTION" />
     <setting file="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/org.mongodb/mongodb-driver-kotlin-coroutine/4.10.1/1045c02aa80d80f52b8b93c05dc68d6fb6c5b736/mongodb-driver-kotlin-coroutine-4.10.1.jar!/com/mongodb/kotlin/client/coroutine/MongoCollection.class" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/Library/Java/JavaVirtualMachines/corretto-1.8.0_362/Contents/Home/src.zip!/java/nio/file/Files.java" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
@@ -78,36 +86,37 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Gradle.Build AlmaMafia.executor": "Run",
-    "Gradle.Download Sources.executor": "Run",
-    "Kotlin.MainKt.executor": "Debug",
-    "Kotlin.TmpKt.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "ShowUsagesActions.previewPropertyKey": "true",
-    "git-widget-placeholder": "master",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/govorov_vr/IdeaProjects/AlmaMafia/scripts",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "project.structure.last.edited": "Modules",
-    "project.structure.proportion": "0.0",
-    "project.structure.side.proportion": "0.0",
-    "settings.editor.selected.configurable": "project.propCompiler",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.Build AlmaMafia.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.Download Sources.executor&quot;: &quot;Run&quot;,
+    &quot;Kotlin.MainKt.executor&quot;: &quot;Run&quot;,
+    &quot;Kotlin.TmpKt.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
+    &quot;ShowUsagesActions.previewPropertyKey&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/govorov_vr/IdeaProjects/AlmaMafia/mafia&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;project.propCompiler&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="ReactorSettings">
     <option name="notificationShown" value="true" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/mafia" />
       <recent name="$PROJECT_DIR$/scripts" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -118,7 +127,7 @@
     <configuration name="MainKt" type="JetRunConfigurationType" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="org.example.MainKt" />
       <module name="AlmaMafia.main" />
-      <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/scripts" />
+      <option name="PROGRAM_PARAMETERS" value="$PROJECT_DIR$/mafia" />
       <shortenClasspath name="NONE" />
       <method v="2">
         <option name="Make" enabled="true" />
@@ -147,6 +156,10 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <list>
+      <item itemvalue="Kotlin.MainKt" />
+      <item itemvalue="Kotlin.TmpKt" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Kotlin.MainKt" />
@@ -298,7 +311,71 @@
       <workItem from="1729606888192" duration="3611000" />
       <workItem from="1729655344619" duration="7675000" />
       <workItem from="1729741616974" duration="2776000" />
+      <workItem from="1730044608929" duration="10142000" />
+      <workItem from="1730087129377" duration="7088000" />
+      <workItem from="1730173258849" duration="552000" />
+      <workItem from="1730265401467" duration="9258000" />
+      <workItem from="1730311542374" duration="5834000" />
+      <workItem from="1730354641485" duration="4966000" />
+      <workItem from="1730433123391" duration="987000" />
+      <workItem from="1730692337298" duration="646000" />
+      <workItem from="1730778996052" duration="399000" />
+      <workItem from="1730874376215" duration="305000" />
+      <workItem from="1730951728038" duration="353000" />
+      <workItem from="1731039092658" duration="5051000" />
+      <workItem from="1731297346674" duration="289000" />
+      <workItem from="1731383712513" duration="172000" />
+      <workItem from="1731480135218" duration="419000" />
+      <workItem from="1731556091070" duration="4550000" />
+      <workItem from="1731643769678" duration="23222000" />
+      <workItem from="1731677194906" duration="3828000" />
+      <workItem from="1731703971522" duration="667000" />
+      <workItem from="1731857387780" duration="5438000" />
+      <workItem from="1731901845509" duration="12904000" />
+      <workItem from="1731940215388" duration="10140000" />
+      <workItem from="1731988295551" duration="8613000" />
+      <workItem from="1732074855566" duration="6815000" />
+      <workItem from="1732169844170" duration="14016000" />
+      <workItem from="1732201056124" duration="159000" />
+      <workItem from="1732248609487" duration="5560000" />
+      <workItem from="1732465039878" duration="151000" />
+      <workItem from="1732506499994" duration="1549000" />
+      <workItem from="1732593115537" duration="6345000" />
+      <workItem from="1732679294289" duration="1802000" />
+      <workItem from="1732766343534" duration="13127000" />
+      <workItem from="1732802573358" duration="8888000" />
+      <workItem from="1732852818260" duration="6410000" />
+      <workItem from="1733111516266" duration="1224000" />
+      <workItem from="1733197425160" duration="8288000" />
+      <workItem from="1733284409834" duration="5909000" />
+      <workItem from="1733370408401" duration="3300000" />
+      <workItem from="1733457268054" duration="11173000" />
+      <workItem from="1733471720797" duration="529000" />
+      <workItem from="1733476274904" duration="13130000" />
+      <workItem from="1733492011679" duration="3354000" />
+      <workItem from="1733555523453" duration="322000" />
+      <workItem from="1733716909559" duration="593000" />
+      <workItem from="1733802826258" duration="530000" />
+      <workItem from="1733889427053" duration="3844000" />
+      <workItem from="1733976716656" duration="6397000" />
+      <workItem from="1734014846321" duration="8930000" />
+      <workItem from="1734062754835" duration="5241000" />
+      <workItem from="1734097321327" duration="468000" />
+      <workItem from="1734098304267" duration="3143000" />
+      <workItem from="1734179107766" duration="2755000" />
+      <workItem from="1734182365075" duration="4415000" />
+      <workItem from="1734208518867" duration="2753000" />
+      <workItem from="1734266050547" duration="3471000" />
     </task>
+    <task id="LOCAL-00001" summary="Initial commit">
+      <option name="closed" value="true" />
+      <created>1730054675455</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1730054675456</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -309,85 +386,116 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="HEAD" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
     </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Initial commit" />
+    <MESSAGE value="Current version" />
+    <option name="LAST_COMMIT_MESSAGE" value="Current version" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Tmp.kt</url>
-          <line>36</line>
+          <line>15</line>
           <option name="timeStamp" value="25" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Tmp.kt</url>
-          <line>35</line>
-          <option name="timeStamp" value="31" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>884</line>
-          <option name="timeStamp" value="43" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>886</line>
-          <option name="timeStamp" value="44" />
-        </line-breakpoint>
-        <line-breakpoint type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>1102</line>
-          <option name="timeStamp" value="52" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>734</line>
-          <option name="timeStamp" value="53" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>1070</line>
+          <line>2754</line>
           <properties>
             <option name="lambda-ordinal" value="-1" />
           </properties>
-          <option name="timeStamp" value="54" />
+          <option name="timeStamp" value="76" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>2206</line>
-          <option name="timeStamp" value="56" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>1231</line>
-          <option name="timeStamp" value="59" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>646</line>
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Old.kt</url>
+          <line>315</line>
           <properties>
             <option name="lambda-ordinal" value="-1" />
           </properties>
-          <option name="timeStamp" value="60" />
+          <option name="timeStamp" value="77" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>78</line>
-          <option name="timeStamp" value="61" />
+          <line>1064</line>
+          <option name="timeStamp" value="86" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>311</line>
-          <option name="timeStamp" value="63" />
+          <line>1639</line>
+          <properties>
+            <option name="lambda-ordinal" value="-1" />
+          </properties>
+          <option name="timeStamp" value="101" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>179</line>
-          <option name="timeStamp" value="64" />
+          <line>2473</line>
+          <option name="timeStamp" value="117" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>1272</line>
+          <option name="timeStamp" value="120" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>1073</line>
+          <properties>
+            <option name="lambda-ordinal" value="-1" />
+          </properties>
+          <option name="timeStamp" value="126" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>554</line>
+          <option name="timeStamp" value="127" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>583</line>
+          <option name="timeStamp" value="129" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>2938</line>
+          <properties>
+            <option name="lambda-ordinal" value="-1" />
+          </properties>
+          <option name="timeStamp" value="130" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>288</line>
+          <option name="timeStamp" value="132" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>263</line>
+          <option name="timeStamp" value="133" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>279</line>
+          <option name="timeStamp" value="136" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
