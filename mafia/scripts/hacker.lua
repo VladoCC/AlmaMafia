@@ -4,11 +4,11 @@
 -- 3 - block
 
 function action(list)
-  return CONST:INFO(list[1]:getRole())
+  return $INFO(list[1]:getRole())
 end
 
 function passive(type)
-  return CONST:ALLOW()
+  return $ALLOW()
 end
 
 function team(table)

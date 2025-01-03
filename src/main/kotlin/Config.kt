@@ -5,7 +5,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 @Serializable
-data class Config(val path: String) {
+data class Config(val path: String, val author: Long, val botToken: String) {
     companion object {
         private val file = File("./config.json")
         operator fun invoke(): Config {

@@ -9,11 +9,11 @@ function action(list)
   else
     text = "Игроки в разных командах"
   end
-  return CONST:INFO(text)
+  return $INFO(text)
 end
 
 function passive(type)
-  return CONST:ALLOW()
+  return $ALLOW()
 end
 
 function team(table)

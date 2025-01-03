@@ -11,6 +11,7 @@ import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import kotlinx.coroutines.flow.*
 import org.bson.types.ObjectId
 import org.example.ParametrizedProcessor.HandlerContext
+import org.slf4j.Logger
 
 data class Command(val name: String, val callback: String, val paramCount: Int) {
     infix fun named(name: String) = copy(name = name)
@@ -63,10 +64,10 @@ interface Processor {
     fun process(query: String, context: CallContext)
 }
 
-class ParametrizedProcessor(callbackKey: String, private val handlerFun: HandlerContext.() -> Unit) : Processor {
+class ParametrizedProcessor(private val callbackKey: String, private val handlerFun: HandlerContext.() -> Unit) : Processor {
     private val callbackPrefix = "$callbackKey:"
 
-    override fun match(query: String) = query.startsWith(callbackPrefix)
+    override fun match(query: String) = query == callbackKey || query.startsWith(callbackPrefix)
 
     override fun process(query: String, context: CallContext) {
         HandlerContext(
@@ -126,6 +127,8 @@ class ContainerBlock<C: CallContext, P>  private constructor(
     private val condition: ConditionContext.(String) -> Return<P>,
     private val errorProcessor: ErrorProcessor?
 ) : CommandBlock() {
+    private val log: Logger = logger<ContainerBlock<C, P>>()
+
     companion object {
         fun <P> basic(
             definition: suspend BasicContext.(P) -> Unit,
@@ -162,7 +165,17 @@ class ContainerBlock<C: CallContext, P>  private constructor(
         val ret = match(query, context)
         return if (ret.result) {
             val result = flow {
-                ret.value?.let { producer(query, context, errorProcessor, this).handlerFun(it) }
+                try {
+                    ret.value?.let {
+                        try {
+                            producer(query, context, errorProcessor, this).handlerFun(it)
+                        } catch (e: Error) {
+                            log.error("Error occurred during message handling, query: $query", e)
+                        }
+                    }
+                } catch (e: Error) {
+                    log.error("Error occurred during flow processing, query: $query", e)
+                }
             }.transformWhile {
                 if (it.process(query, bot, context)) {
                     emit(it)
@@ -246,11 +259,7 @@ class ContainerBlock<C: CallContext, P>  private constructor(
         fun <T> allow(returnFun: () -> T) = Return(returnFun(), true)
         fun allowIf(conditionFun: () -> Boolean) = Return(Unit, conditionFun())
         fun <T> notNull(returnFun: () -> T?): Return<T> = with(returnFun()) {
-            if (this != null) {
-                allow { this }
-            } else {
-                deny()
-            }
+            this?.let { allow { this } } ?: deny()
         }
     }
 }
@@ -300,7 +309,7 @@ fun CallbackQueryHandlerEnvironment.context(query: String) = with(callbackQuery.
 }
 
 fun CallbackQueryHandlerEnvironment.handle(query: String) =
-    context(query).let { ParametrizedQuery(query, bot, it) }
+    ParametrizedQuery(query, bot, context(query))
 
 
 fun inlineKeyboard(definition: KeyboardContext.() -> Unit) =
@@ -323,7 +332,7 @@ class KeyboardContext(private val list: MutableList<List<InlineKeyboardButton>>)
             list.add(
                 InlineKeyboardButton.CallbackData(
                     command.name,
-                    command.callback + if (params.isNotEmpty()) ":" + params.joinToString(",") else ""
+                    Query.create(command.callback, *params)
                 )
             )
         }
@@ -337,7 +346,7 @@ fun footerKeyboard(definition: FooterContext.() -> Unit) = KeyboardReplyMarkup(
 
 class FooterContext(private val list: MutableList<List<KeyboardButton>>) {
     fun row(definition: RowContext.() -> Unit) {
-        val rowContent = mutableListOf<KeyboardButton>().also { FooterContext.RowContext(it).definition() }
+        val rowContent = mutableListOf<KeyboardButton>().also { RowContext(it).definition() }
         list.add(rowContent)
     }
 
@@ -390,8 +399,8 @@ sealed interface CallContext {
 }
 
 object Query {
-    const val prefixDelimeter = ':'
-    const val paramDelimeter = ","
+    private const val prefixDelimeter = ':'
+    private const val paramDelimeter = ","
 
     fun create(callback: String, vararg params: Any) = callback +
             if (params.isNotEmpty()) prefixDelimeter + params.joinToString(paramDelimeter) else ""

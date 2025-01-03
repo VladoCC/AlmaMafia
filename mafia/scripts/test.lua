@@ -4,7 +4,7 @@
 -- 3 - block
 
 function action(list)
-  return CONST:KILL(list[1])
+  return $KILL(list[1])
 end
 
 function passive(type)

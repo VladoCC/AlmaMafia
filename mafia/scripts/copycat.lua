@@ -8,7 +8,7 @@ found = false
 
 function action(list)
     if maniac then
-        return CONST:KILL(list[1])
+        return $KILL(list[1])
     end
         if list[1]:getRole() == "Маньяк" then
         	text = "Подражатель нашел маньяка"
@@ -16,11 +16,11 @@ function action(list)
         else
           text = "Подражатель не нашел маньяка"
         end
-        return CONST:INFO(text)
+        return $INFO(text)
 end
 
 function passive(type)
-  return CONST:ALLOW()
+  return $ALLOW()
 end
 
 function team(table)

@@ -7,22 +7,22 @@ selected = -1
 actionId = -1
 
 function action(list)
-  selected = CONST:STORE(list[1])
-  res = CONST:HEAL(list[1])
-  actionId = CONST:STORE(res)
+  selected = $STORE(list[1])
+  res = $HEAL(list[1])
+  actionId = $STORE(res)
   return res
 end
 
 function passive(type)
-  if CONST:IS_KILL(type) then
-        kill = CONST:KILL(CONST:STORED(selected))
-        cancel = CONST:CANCEL(CONST:STORED(actionId))
-        return CONST:TWO(kill, cancel)
+  if $IS_KILL(type) then
+        kill = $KILL($STORED(selected))
+        cancel = $CANCEL($STORED(actionId))
+        return $TWO(kill, cancel)
     end
-  if CONST:IS_HEAL(type) then
-      return CONST:HEAL(CONST:STORED(selected))
+  if $IS_HEAL(type) then
+      return $HEAL($STORED(selected))
   end
-    return CONST:ALLOW()
+    return $ALLOW()
 end
 
 function team(table)

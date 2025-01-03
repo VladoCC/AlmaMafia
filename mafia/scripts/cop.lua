@@ -4,16 +4,16 @@
 -- 3 - block
 
 function action(list)
-  if list[1]:getTeam() == "city" or list[1]:getRole() == "Дон" or list[1]:getRole() == "Маньяк" then
+  if list[1]:getTeam() == "city" or list[1]:getRole() == "don" or list[1]:getRole() == "maniac" then
   	text = "Светлая роль"
   else
     text = "Темная роль"
   end
-  return CONST:INFO(text)
+  return $INFO(text)
 end
 
 function passive(type)
-  return CONST:ALLOW()
+  return $ALLOW()
 end
 
 function team(table)

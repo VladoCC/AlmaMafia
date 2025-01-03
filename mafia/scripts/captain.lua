@@ -4,11 +4,11 @@
 -- 3 - block
 
 function action(list)
-  return CONST:BLOCK(list[1])
+  return $BLOCK(list[1])
 end
 
 function passive(type)
-  return CONST:ALLOW()
+  return $ALLOW()
 end
 
 function team(table)

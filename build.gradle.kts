@@ -29,6 +29,12 @@ dependencies {
     implementation("org.luaj:luaj-jse:3.0.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.google.code.gson:gson:2.11.0")
+
+    implementation("org.slf4j:slf4j-api:1.7.36")
+    implementation("ch.qos.logback:logback-classic:1.5.13")
+    implementation("ch.qos.logback:logback-core:1.5.13")
+    implementation("janino:janino:2.5.10")
+
     api("com.google.guava:guava:33.3.1-jre")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
 }
@@ -37,5 +43,5 @@ tasks.test {
     useJUnitPlatform()
 }
 kotlin {
-    jvmToolchain(8)
+    jvmToolchain(21)
 }

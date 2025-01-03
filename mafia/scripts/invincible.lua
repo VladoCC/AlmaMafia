@@ -4,14 +4,14 @@
 -- 3 - block
 
 function action(list)
-  return CONST:NONE()
+  return $NONE()
 end
 
 function passive(action)
-  if CONST:IS_KILL(action) then
-  	return CONST:CANCEL(action)
+  if $IS_KILL(action) then
+  	return $CANCEL(action)
   end
-  return CONST:ALLOW()
+  return $ALLOW()
 end
 
 function team(table)

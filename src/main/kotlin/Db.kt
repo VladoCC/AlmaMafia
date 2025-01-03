@@ -3,13 +3,9 @@ package org.example
 import com.google.common.cache.CacheBuilder
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
-import com.mongodb.kotlin.client.coroutine.MongoCollection
 import java.io.File
-import java.io.IOException
-import java.nio.file.Files
 import java.nio.file.Files.*
 import java.nio.file.Paths
-import java.nio.file.attribute.FileAttribute
 import java.time.Duration
 import kotlin.reflect.KClass
 
@@ -53,7 +49,7 @@ class Collection<T: Any, K: Any>(private val name: String, private val driver: D
 
     fun save(value: T) = save(keyFun(value), value)
 
-    fun save(id: K, value: T) = driver.write(key(id), gson.toJson(value)).let { id }
+    private fun save(id: K, value: T) = driver.write(key(id), gson.toJson(value)).let { id }
 
     fun delete(id: K) = driver.delete(key(id))
 
@@ -106,7 +102,10 @@ class Driver(private val root: String) {
 
     fun delete(key: String) {
         try {
-            Files.delete(Paths.get(root, "$key.json"))
+            val path = Paths.get(root, "$key.json")
+            if (exists(path)) {
+                delete(path)
+            }
             cache.invalidate(key)
         } catch (e: Exception) {
             e.printStackTrace()

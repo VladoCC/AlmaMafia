@@ -1,5 +1,6 @@
 package org.example
 
+/*
 import com.github.kotlintelegrambot.dispatcher.handlers.CallbackQueryHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.handlers.TextHandlerEnvironment
 import com.github.kotlintelegrambot.entities.ChatId
@@ -197,16 +198,20 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
         }
 
         AccountState.Lobby -> {
-            connections.get(/*chatId*/ObjectId())?.let { con ->
+            connections.get(*/
+/*chatId*//*
+ObjectId())?.let { con ->
                 if (con.pos == Int.MAX_VALUE) {
                     try {
                         val num = text.toInt()
                         if (num <= 0) {
                             error()
                         }
-                        /*connections.update(con.player) {
+                        */
+/*connections.update(con.player) {
                             pos = num
-                        }*/
+                        }*//*
+
                         games.get(con.gameId)?.host?.let {
                             pending.save(Pending(ObjectId(), it))
                         }
@@ -256,7 +261,8 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                                 )
                             }
                             return
-                        } else {/*leaveGame(
+                        } else {*/
+/*leaveGame(
                                 accounts,
                                 chatId,
                                 resetAccount,
@@ -265,7 +271,8 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                                 connections,
                                 games,
                                 bot
-                            )*/
+                            )*//*
+
 
                         }
                     }
@@ -320,14 +327,16 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                         dayMessageId = -1L
                         connectionId = null
                     }
-                    /*withAccount(accounts, chatId) { acc, chat ->
+                    */
+/*withAccount(accounts, chatId) { acc, chat ->
                         bot.sendMessage(
                             ChatId.fromId(chatId),
                             "Игра перезапущена.",
                             replyMarkup = connectKeyboard
                         )
                         showLobby(acc, connections, game, bot, accounts)
-                    }*/
+                    }*//*
+
                     return
                 }
 
@@ -337,9 +346,11 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                         if (num <= 0) {
                             error()
                         }
-                        /*connections.update(result.connectionId) {
+                        */
+/*connections.update(result.connectionId) {
                             pos = num
-                        }*/
+                        }*//*
+
                         //showLobby(result, connections, game, bot, accounts)
                         return
                     } catch (e: NumberFormatException) {
@@ -369,11 +380,16 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                         )
                         return
                     } else if (game.state == GameState.Rename && result.connectionId != null) {
-                        /*connections.get(result.connectionId)?.let {
+                        */
+/*connections.get(result.connectionId)?.let {
                             val newName = message.text ?: ""
-                            *//*connections.update(result.connectionId) {
+                            *//*
+*/
+/*connections.update(result.connectionId) {
                                 name = newName
                             }*//*
+*/
+/*
                             games.update(game.id) {
                                 state = GameState.Connect
                             }
@@ -385,7 +401,8 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                             )
                             //showLobby(result, connections, game, bot, accounts)
                             return
-                        }*/
+                        }*//*
+
                     }
                 }
 
@@ -462,14 +479,16 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                             }
                         }
                         for (con in cons) {
-                            /*connections.update(con.player) {
+                            */
+/*connections.update(con.player) {
                                 pos = con.pos
-                            }*/
+                            }*//*
+
                         }
                         games.update(game.id) { state = GameState.Roles }
 
                         roles.find { gameId == game.id }.forEach {
-                            setups.save(Setup(ObjectId(), it.id, game.id, it.name, -1))
+                            setups.save(Setup(ObjectId(), it.id, game.id, it.displayName, -1))
                         }
                         bot.sendMessage(
                             ChatId.fromId(chatId),
@@ -522,7 +541,8 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                             cons.add(it)
                         }
                         roleList.shuffle()
-                        /*roleList.indices.forEach {
+                        */
+/*roleList.indices.forEach {
                             val role = roleList.get(it)
                             val con = cons.get(it)
                             pairings.save(
@@ -533,7 +553,8 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                                     role
                                 )
                             )
-                        }*/
+                        }*//*
+
                         //showPreview(bot, chatId, pairings, game)
                     }
 
@@ -618,7 +639,8 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                             if (it.bot) {
                                 return@forEach
                             }
-                            /*withAccount(accounts, it.player) { acc, chat ->
+                            */
+/*withAccount(accounts, it.player) { acc, chat ->
                                 accounts.update(acc.chatId, resetAccount)
                                 showMenu(
                                     chat,
@@ -628,7 +650,8 @@ suspend fun TextHandlerEnvironment.oldTextQueries(
                                     bot,
                                     true
                                 )
-                            }*/
+                            }*//*
+
                         }
                         connections.deleteMany(gameFilter)
                         kicks.deleteMany({ gameId == game.id })
@@ -830,7 +853,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
         }
     } else if (data.startsWith("hand:")) {
         val id = data.substring(6).toLong()
-        /*connections.get(id)?.let { con ->
+        */
+/*connections.get(id)?.let { con ->
             if (con.bot) {
                 return
             }
@@ -842,10 +866,12 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                     )
                 }
             }
-        }*/
+        }*//*
+
     } else if (data.startsWith("kick:")) {
         val id = data.substring(6).toLong()
-        /*connections.get(id)?.let { con ->
+        */
+/*connections.get(id)?.let { con ->
             if (con.bot) {
                 return@callbackQuery
             }
@@ -875,7 +901,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                     pending.save(Pending(ObjectId(), chatId))
                 }
             }
-        }*/
+        }*//*
+
     } else if (data.startsWith("ukic:")) {
         val id = ObjectId(data.substring(6))
         kicks.get(id)?.let { kick ->
@@ -891,7 +918,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
         }
     } else if (data.startsWith("conn:")) {
         val id = data.substring(6).toLong()
-        /*connections.get(id)?.let { con ->
+        */
+/*connections.get(id)?.let { con ->
             callbackQuery.message?.chat?.id?.let { chatId ->
                 games.find { host == chatId }.singleOrNull()?.let { game ->
                     if (game.state != GameState.Connect) {
@@ -914,7 +942,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                     )
                 }
             }
-        }*/
+        }*//*
+
     } else if (data.startsWith("send:")) {
         val id = ObjectId(data.substring(6))
         games.get(id)?.let { game ->
@@ -945,7 +974,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
         }
     } else if (data.startsWith("posi:")) {
         val id = data.substring(6).toLong()
-        /*connections.get(id)?.let { con ->
+        */
+/*connections.get(id)?.let { con ->
             callbackQuery.message?.chat?.id?.let { chatId ->
                 val game = games.get(con.gameId)
                 if (game?.host == chatId) {
@@ -973,7 +1003,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                     )
                 }
             }
-        }*/
+        }*//*
+
     } else if (data.startsWith("decr:")) {
         val id = ObjectId(data.substring(6))
         setups.get(id)?.let { setup ->
@@ -1005,7 +1036,7 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
             roles.get(id)?.let { role ->
                 bot.sendMessage(
                     ChatId.fromId(chatId),
-                    text = "Название: ${role.name}\nОписание: ${role.desc}"
+                    text = "Название: ${role.displayName}\nОписание: ${role.desc}"
                 )
             }
         }
@@ -1025,8 +1056,6 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                             types,
                             chatId,
                             towns,
-                            roleNameLen,
-                            roleDescLen,
                             games,
                             bot,
                             modes
@@ -1193,11 +1222,13 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                         val messageId = data.drop(10).toLong()
                         modes.update(it.id) { fallMode = !it.fallMode }
                         //showDay(town, chatId, towns, accounts, bot, "", "", modes, game)
-                        /*bot.editMessageReplyMarkup(
+                        */
+/*bot.editMessageReplyMarkup(
                             ChatId.fromId(chatId),
                             messageId,
                             replyMarkup = settingsButtons(it.copy(fallMode = !it.fallMode), messageId)
-                        )*/
+                        )*//*
+
                     }
                 }
             }
@@ -1264,7 +1295,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
         }
     } else if (data == "leave") {
         withAccount(accounts) { result, chatId ->
-            /*val con = connections.get(chatId)
+            */
+/*val con = connections.get(chatId)
             if (con != null) {
                 leaveGame(
                     accounts,
@@ -1287,7 +1319,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                     ChatId.fromId(chatId),
                     "Не удалось покинуть игру. Не найдено подключения к игре."
                 )
-            }*/
+            }*//*
+
         }
     } else if (data == "update") {
         val msgId = data.drop(8).toLong()
@@ -1322,7 +1355,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
     } else if (data == "gameInfo") {
         withAccount(accounts) { acc, chat ->
             if (acc.state == AccountState.Lobby) {
-                /*connections.get(chat)?.let { con ->
+                */
+/*connections.get(chat)?.let { con ->
                     games.get(con.gameId)?.let { game ->
                         if (game.state == GameState.Game) {
                             val mode = modes.get(game.id)?.mode
@@ -1344,7 +1378,8 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                             )
                         }
                     }
-                }*/
+                }*//*
+
             }
         }
     } else if (data == "settings") {
@@ -1361,11 +1396,13 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
                         )
                         if (res.isSuccess) {
                             val messageId = res.get().messageId
-                            /*bot.editMessageReplyMarkup(
+                            */
+/*bot.editMessageReplyMarkup(
                                 ChatId.fromId(chat),
                                 messageId,
                                 replyMarkup = settingsButtons(it, messageId)
-                            )*/
+                            )*//*
+
                         }
                     }
                 }
@@ -1394,4 +1431,4 @@ suspend fun CallbackQueryHandlerEnvironment.oldCallbacks(
             }
         }
     }
-}
+}*/

@@ -4,39 +4,68 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="40db9507-1966-4aa6-a5bc-2c691cfa7393" name="Changes" comment="Current version">
-      <change afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/data/ads/1.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/alibi.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/beauty.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/captain.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/cop.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/copycat.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/doctor.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/don.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/hacker.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/invincible.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/journalist.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/kamikazi.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/mafia.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/maniac.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/saturday/template.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/snitch.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/template.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/test.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/traitor.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/mafia/scripts/yakuza.lua" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Command.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Config.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Db.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Migration.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Old.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
+    <list default="true" id="40db9507-1966-4aa6-a5bc-2c691cfa7393" name="Changes" comment="Version 2.0: redesign interface (night interface is in multiple messages for this version)&#10;&#10;Move to json-based database, remove dependency on mongo connection (mongo is in project for migration purposes)&#10;&#10;Keep game history&#10;End games automatically after long time passed&#10;Numpad based position input">
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Collections.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Commands.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Const.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Data.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Enums.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/Logging.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/game/Town.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/lua/Interface.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/kotlin/lua/Script.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/resources/logback.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/kotlin/Test.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.json" beforeDir="false" afterPath="$PROJECT_DIR$/config.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" beforeDir="false" afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.jar" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew" beforeDir="false" afterPath="$PROJECT_DIR$/gradlew" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradlew.bat" beforeDir="false" afterPath="$PROJECT_DIR$/gradlew.bat" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/data/ads/1.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/alibi.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/alibi.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/beauty.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/beauty.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/captain.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/captain.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/cop.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/cop.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/copycat.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/copycat.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/doctor.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/doctor.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/don.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/don.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/hacker.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/hacker.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/invincible.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/invincible.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/journalist.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/journalist.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/kamikazi.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/kamikazi.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/mafia.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/mafia.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/maniac.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/maniac.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/snitch.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/snitch.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/template.json" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/template.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/test.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/test.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/traitor.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/traitor.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mafia/scripts/yakuza.lua" beforeDir="false" afterPath="$PROJECT_DIR$/mafia/scripts/yakuza.lua" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scripts/alibi.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/alibi.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/beauty.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/beauty.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/captain.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/captain.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/cop.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/cop.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/copycat.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/copycat.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/doctor.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/doctor.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/don.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/don.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/hacker.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/hacker.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/invincible.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/invincible.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/journalist.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/journalist.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/kamikazi.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/kamikazi.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/mafia.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/mafia.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/maniac.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/maniac.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/snitch.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/snitch.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/traitor.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/traitor.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/yakuza.lua" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/yakuza.lua" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Command.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Telegram.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Config.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Config.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Db.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Db.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/kotlin/Main.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Main.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Tmp.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Tmp.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Migration.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Old.kt" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/kotlin/Old.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/kotlin/Tmp.kt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -51,8 +80,9 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Kotlin File" />
+        <option value="Class" />
         <option value="Kotlin Class" />
+        <option value="Kotlin File" />
       </list>
     </option>
   </component>
@@ -90,7 +120,8 @@
   &quot;keyToString&quot;: {
     &quot;Gradle.Build AlmaMafia.executor&quot;: &quot;Run&quot;,
     &quot;Gradle.Download Sources.executor&quot;: &quot;Run&quot;,
-    &quot;Kotlin.MainKt.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.Upgrade Gradle wrapper.executor&quot;: &quot;Run&quot;,
+    &quot;Kotlin.MainKt.executor&quot;: &quot;Debug&quot;,
     &quot;Kotlin.TmpKt.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
@@ -98,16 +129,17 @@
     &quot;ShowUsagesActions.previewPropertyKey&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/govorov_vr/IdeaProjects/AlmaMafia/mafia&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/govorov_vr/IdeaProjects/AlmaMafia/mafia/data/admins&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.0&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;project.propCompiler&quot;,
+    &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
+    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
+    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.build&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -116,6 +148,7 @@
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/mafia/data/admins" />
       <recent name="$PROJECT_DIR$/mafia" />
       <recent name="$PROJECT_DIR$/scripts" />
     </key>
@@ -365,7 +398,25 @@
       <workItem from="1734179107766" duration="2755000" />
       <workItem from="1734182365075" duration="4415000" />
       <workItem from="1734208518867" duration="2753000" />
-      <workItem from="1734266050547" duration="3471000" />
+      <workItem from="1734266050547" duration="5110000" />
+      <workItem from="1734407912573" duration="692000" />
+      <workItem from="1734494620779" duration="304000" />
+      <workItem from="1734580445255" duration="294000" />
+      <workItem from="1734668242197" duration="2433000" />
+      <workItem from="1734861004432" duration="981000" />
+      <workItem from="1734926169026" duration="155000" />
+      <workItem from="1735012881615" duration="185000" />
+      <workItem from="1735102668058" duration="552000" />
+      <workItem from="1735106919295" duration="408000" />
+      <workItem from="1735192000238" duration="430000" />
+      <workItem from="1735277033168" duration="13883000" />
+      <workItem from="1735391007365" duration="3618000" />
+      <workItem from="1735490944657" duration="11221000" />
+      <workItem from="1735539785060" duration="14615000" />
+      <workItem from="1735627160121" duration="5304000" />
+      <workItem from="1735724374901" duration="8886000" />
+      <workItem from="1735842541242" duration="3379000" />
+      <workItem from="1735935551847" duration="291000" />
     </task>
     <task id="LOCAL-00001" summary="Initial commit">
       <option name="closed" value="true" />
@@ -375,7 +426,23 @@
       <option name="project" value="LOCAL" />
       <updated>1730054675456</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Version 2.0: redesigne interface (night interface is in multiple messages for this version)&#10;&#10;Move to json-based database, remove dependency on mongo connection (mongo is in project for migration purposes)&#10;&#10;Keep game history&#10;End games automatically after long time passed&#10;Numpad based position input">
+      <option name="closed" value="true" />
+      <created>1734293770018</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1734293770018</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Version 2.0: redesign interface (night interface is in multiple messages for this version)&#10;&#10;Move to json-based database, remove dependency on mongo connection (mongo is in project for migration purposes)&#10;&#10;Keep game history&#10;End games automatically after long time passed&#10;Numpad based position input">
+      <option name="closed" value="true" />
+      <created>1734293864356</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1734293864356</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -407,19 +474,16 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Initial commit" />
     <MESSAGE value="Current version" />
-    <option name="LAST_COMMIT_MESSAGE" value="Current version" />
+    <MESSAGE value="Version 2.0: redesigne interface (night interface is in multiple messages for this version)&#10;&#10;Move to json-based database, remove dependency on mongo connection (mongo is in project for migration purposes)&#10;&#10;Keep game history&#10;End games automatically after long time passed&#10;Numpad based position input" />
+    <MESSAGE value="Version 2.0: redesign interface (night interface is in multiple messages for this version)&#10;&#10;Move to json-based database, remove dependency on mongo connection (mongo is in project for migration purposes)&#10;&#10;Keep game history&#10;End games automatically after long time passed&#10;Numpad based position input" />
+    <option name="LAST_COMMIT_MESSAGE" value="Version 2.0: redesign interface (night interface is in multiple messages for this version)&#10;&#10;Move to json-based database, remove dependency on mongo connection (mongo is in project for migration purposes)&#10;&#10;Keep game history&#10;End games automatically after long time passed&#10;Numpad based position input" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Tmp.kt</url>
-          <line>15</line>
-          <option name="timeStamp" value="25" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>2754</line>
+          <line>2864</line>
           <properties>
             <option name="lambda-ordinal" value="-1" />
           </properties>
@@ -427,7 +491,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Old.kt</url>
-          <line>315</line>
+          <line>322</line>
           <properties>
             <option name="lambda-ordinal" value="-1" />
           </properties>
@@ -435,12 +499,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>1064</line>
+          <line>1025</line>
           <option name="timeStamp" value="86" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>1639</line>
+          <line>1662</line>
           <properties>
             <option name="lambda-ordinal" value="-1" />
           </properties>
@@ -448,54 +512,58 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>2473</line>
+          <line>2558</line>
           <option name="timeStamp" value="117" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>1272</line>
+          <line>1234</line>
           <option name="timeStamp" value="120" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>1073</line>
-          <properties>
-            <option name="lambda-ordinal" value="-1" />
-          </properties>
-          <option name="timeStamp" value="126" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="kotlin-line">
-          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>554</line>
+          <line>391</line>
           <option name="timeStamp" value="127" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>583</line>
+          <line>420</line>
           <option name="timeStamp" value="129" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>2938</line>
-          <properties>
-            <option name="lambda-ordinal" value="-1" />
-          </properties>
-          <option name="timeStamp" value="130" />
+          <line>946</line>
+          <option name="timeStamp" value="137" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>288</line>
-          <option name="timeStamp" value="132" />
+          <line>833</line>
+          <option name="timeStamp" value="143" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>263</line>
-          <option name="timeStamp" value="133" />
+          <line>138</line>
+          <option name="timeStamp" value="149" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
-          <line>279</line>
-          <option name="timeStamp" value="136" />
+          <line>449</line>
+          <option name="timeStamp" value="150" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>161</line>
+          <option name="timeStamp" value="151" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/Main.kt</url>
+          <line>1578</line>
+          <option name="timeStamp" value="156" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="kotlin-line">
+          <url>file://$PROJECT_DIR$/src/main/kotlin/game/Town.kt</url>
+          <line>74</line>
+          <option name="timeStamp" value="158" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
