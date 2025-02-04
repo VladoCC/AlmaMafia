@@ -23,7 +23,8 @@ enum class CheckOption(val key: String, val display: String) {
     HOST_REQUEST("host_request", "Сохранять запросы на ведение"),
     REVEAL_MENU("reveal_menu", "Проверка ознакомления с ролями"),
     GAME_MESSAGES("game_messages", "Удалять игровые сообщения"),
-    KEEP_DETAILS("keep_details", "Оставаться в меню деталей после нажатия кнопки")
+    KEEP_DETAILS("keep_details", "Оставаться в меню деталей после нажатия кнопки"),
+    CHECK_ROLE("check_role", "Проверять роль ночью")
 }
 
 
@@ -32,7 +33,7 @@ enum class AccountState {
 }
 
 enum class GameState {
-    Connect, Roles, Preview, Game, Dummy, Rename, Num, Reveal
+    Connect, Roles, Preview, Game, Dummy, Rename, Num, Reveal, ChangeHost
 }
 
 enum class AdminState {

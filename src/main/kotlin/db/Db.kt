@@ -1,4 +1,4 @@
-package org.example
+package org.example.db
 
 import com.google.common.cache.CacheBuilder
 import com.google.gson.Gson
@@ -12,10 +12,10 @@ import kotlin.reflect.KClass
 class Database(path: String) {
     val driver = Driver(path)
 
-    inline fun <reified T, K: Any> collection(name: String, noinline keyFun: (T) -> K) = Collection(name, driver, keyFun)
+    inline fun <K: Any, reified T> collection(name: String, noinline keyFun: (T) -> K) = Collection(name, driver, keyFun)
 }
 
-class Collection<T: Any, K: Any>(private val name: String, private val driver: Driver, private val type : KClass<out T>, private val keyFun: (T) -> K) {
+class Collection<K: Any, T: Any>(private val name: String, private val driver: Driver, private val type : KClass<out T>, private val keyFun: (T) -> K) {
     private val gson = Gson()
 
     companion object {

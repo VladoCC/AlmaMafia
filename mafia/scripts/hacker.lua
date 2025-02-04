@@ -4,7 +4,7 @@
 -- 3 - block
 
 function action(list)
-  return $INFO(list[1]:getRole())
+  return $INFO(list[1]:getRoleName())
 end
 
 function passive(type)

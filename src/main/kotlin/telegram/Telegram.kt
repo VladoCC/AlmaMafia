@@ -1,23 +1,26 @@
-package org.example
+package org.example.telegram
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.dispatcher.handlers.CallbackQueryHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.handlers.TextHandlerEnvironment
 import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.HideKeyboardReplyMarkup
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
 import com.github.kotlintelegrambot.entities.keyboard.InlineKeyboardButton
 import com.github.kotlintelegrambot.entities.keyboard.KeyboardButton
 import kotlinx.coroutines.flow.*
 import org.bson.types.ObjectId
-import org.example.ParametrizedProcessor.HandlerContext
+import org.example.deleteMsgCommand
+import org.example.logger
+import org.example.telegram.ParametrizedProcessor.HandlerContext
 import org.slf4j.Logger
 
 data class Command(val name: String, val callback: String, val paramCount: Int) {
     infix fun named(name: String) = copy(name = name)
 }
 
-class Store(query: String): ParameterStore {
+class Store(query: String) : ParameterStore {
     private val params: List<String> = Query.params(query)
     private fun get(index: Int): String = params[index]
     private fun <T> value(index: Int, cast: String.() -> T): T = get(index).cast()
@@ -25,7 +28,7 @@ class Store(query: String): ParameterStore {
     override fun int(index: Int) = value(index) { toInt() }
     override fun long(index: Int) = value(index) { toLong() }
     override fun id(index: Int) = value(index) { ObjectId(this) }
-    override fun str(index: Int) = value(index){ this }
+    override fun str(index: Int) = value(index) { this }
 
     override fun isInt(index: Int): Boolean {
         return try {
@@ -35,6 +38,7 @@ class Store(query: String): ParameterStore {
             false
         }
     }
+
     override fun isLong(index: Int): Boolean {
         return try {
             get(index).toLong()
@@ -43,6 +47,7 @@ class Store(query: String): ParameterStore {
             false
         }
     }
+
     override fun isId(index: Int): Boolean {
         return get(index).length == 24
     }
@@ -64,7 +69,8 @@ interface Processor {
     fun process(query: String, context: CallContext)
 }
 
-class ParametrizedProcessor(private val callbackKey: String, private val handlerFun: HandlerContext.() -> Unit) : Processor {
+class ParametrizedProcessor(private val callbackKey: String, private val handlerFun: HandlerContext.() -> Unit) :
+    Processor {
     private val callbackPrefix = "$callbackKey:"
 
     override fun match(query: String) = query == callbackKey || query.startsWith(callbackPrefix)
@@ -76,7 +82,7 @@ class ParametrizedProcessor(private val callbackKey: String, private val handler
         ).handlerFun()
     }
 
-    class HandlerContext(private val context: CallContext, private val store: ParameterStore):
+    class HandlerContext(private val context: CallContext, private val store: ParameterStore) :
         CallContext by context, ParameterStore by store
 }
 
@@ -88,10 +94,10 @@ class BasicProcessor(private val callbackKey: String, private val handlerFun: Ha
         HandlerContext(context).handlerFun()
     }
 
-    class HandlerContext(private val context: CallContext): CallContext by context
+    class HandlerContext(private val context: CallContext) : CallContext by context
 }
 
-class AnyProcessor(private val handlerFun: CallContext.() -> Unit): Processor {
+class AnyProcessor(private val handlerFun: CallContext.() -> Unit) : Processor {
     override fun match(query: String) = true
     override fun process(query: String, context: CallContext) {
         context.handlerFun()
@@ -121,7 +127,7 @@ class SingleCommandBlock(private val processor: Processor) : CommandBlock() {
     }
 }
 
-class ContainerBlock<C: CallContext, P>  private constructor(
+class ContainerBlock<C : CallContext, P> private constructor(
     private val handlerFun: suspend C.(P) -> Unit,
     private val producer: (String, CallContext, ErrorProcessor?, FlowCollector<CommandBlock>) -> C,
     private val condition: ConditionContext.(String) -> Return<P>,
@@ -193,7 +199,11 @@ class ContainerBlock<C: CallContext, P>  private constructor(
         }
     }
 
-    open class BasicContext(context: CallContext, collector: FlowCollector<CommandBlock>, errorProcessor: ErrorProcessor?): ErrorHandlingFlowContext(context, collector, errorProcessor) {
+    open class BasicContext(
+        context: CallContext,
+        collector: FlowCollector<CommandBlock>,
+        errorProcessor: ErrorProcessor?
+    ) : ErrorHandlingFlowContext(context, collector, errorProcessor) {
         suspend fun simple(vararg commands: Command, definition: BasicProcessor.HandlerContext.() -> Unit) {
             commands.forEach {
                 emit(SingleCommandBlock(BasicProcessor(it.callback, definition)))
@@ -221,7 +231,7 @@ class ContainerBlock<C: CallContext, P>  private constructor(
         private val store: ParameterStore,
         collector: FlowCollector<CommandBlock>,
         errorProcessor: ErrorProcessor?
-    ): ErrorHandlingFlowContext(context, collector, errorProcessor), ParameterStore by store {
+    ) : ErrorHandlingFlowContext(context, collector, errorProcessor), ParameterStore by store {
         suspend fun parametrized(vararg commands: Command, definition: HandlerContext.() -> Unit) {
             commands.forEach {
                 emit(SingleCommandBlock(ParametrizedProcessor(it.callback, definition)))
@@ -238,7 +248,10 @@ class ContainerBlock<C: CallContext, P>  private constructor(
             emit(SingleCommandBlock(AnyProcessor(definition)))
         }
 
-        suspend fun <P> block(condition: ConditionContext.(String) -> Return<P>, definition: suspend ParametrizedContext.(P) -> Unit) {
+        suspend fun <P> block(
+            condition: ConditionContext.(String) -> Return<P>,
+            definition: suspend ParametrizedContext.(P) -> Unit
+        ) {
             emit(parametrized(definition, errorProcessor, condition))
         }
 
@@ -251,10 +264,12 @@ class ContainerBlock<C: CallContext, P>  private constructor(
         context: CallContext,
         collector: FlowCollector<CommandBlock>,
         protected val errorProcessor: ErrorProcessor?
-    ): FlowContext(context, collector)
-    open class FlowContext(context: CallContext, private val collector: FlowCollector<CommandBlock>):
+    ) : FlowContext(context, collector)
+
+    open class FlowContext(context: CallContext, private val collector: FlowCollector<CommandBlock>) :
         CallContext by context, FlowCollector<CommandBlock> by collector
-    open class ConditionContext(context: CallContext): CallContext by context {
+
+    open class ConditionContext(context: CallContext) : CallContext by context {
         fun <T> deny(): Return<T> = Return(null, false)
         fun <T> allow(returnFun: () -> T) = Return(returnFun(), true)
         fun allowIf(conditionFun: () -> Boolean) = Return(Unit, conditionFun())
@@ -267,7 +282,8 @@ class ContainerBlock<C: CallContext, P>  private constructor(
 class TextHandler(
     errorProcessor: CallContext.() -> Unit = { },
     definition: suspend ContainerBlock.BasicContext.(Unit) -> Unit
-): Handler<ContainerBlock.BasicContext>(ContainerBlock.basic(definition, ErrorProcessor(errorProcessor)) { allow {} })
+) : Handler<ContainerBlock.BasicContext>(ContainerBlock.basic(definition, ErrorProcessor(errorProcessor)) { allow {} })
+
 class TextQuery(private val text: String, private val bot: Bot, private val context: CallContext) {
     suspend infix fun by(handler: TextHandler) {
         handler.handle(text, bot, context)
@@ -289,8 +305,9 @@ fun TextHandlerEnvironment.handle(text: String) =
 class QueryHandler(
     errorProcessor: ErrorProcessor? = null,
     definition: suspend ContainerBlock.ParametrizedContext.(Unit) -> Unit
-): Handler<ContainerBlock.ParametrizedContext>(ContainerBlock.parametrized(definition, errorProcessor) { allow {} })
-sealed class Handler<C: CallContext>(private val block: ContainerBlock<C, Unit>) {
+) : Handler<ContainerBlock.ParametrizedContext>(ContainerBlock.parametrized(definition, errorProcessor) { allow {} })
+
+sealed class Handler<C : CallContext>(private val block: ContainerBlock<C, Unit>) {
     suspend fun handle(query: String, bot: Bot, callContext: CallContext) {
         if (block.match(query, callContext).result) {
             block.process(query, bot, callContext)
@@ -304,7 +321,7 @@ class ParametrizedQuery(private val query: String, private val bot: Bot, private
     }
 }
 
-fun CallbackQueryHandlerEnvironment.context(query: String) = with(callbackQuery.message?.chat?.id?: -1L) {
+fun CallbackQueryHandlerEnvironment.context(query: String) = with(callbackQuery.message?.chat?.id ?: -1L) {
     Call(query, this, callbackQuery.message?.messageId, callbackQuery.from.username ?: "", bot)
 }
 
@@ -339,10 +356,19 @@ class KeyboardContext(private val list: MutableList<List<InlineKeyboardButton>>)
     }
 }
 
-fun footerKeyboard(definition: FooterContext.() -> Unit) = KeyboardReplyMarkup(
-    keyboard = mutableListOf<List<KeyboardButton>>().also { FooterContext(it).definition() },
-    resizeKeyboard = true
-)
+fun footerKeyboard(definition: FooterContext.() -> Unit) = with(
+    mutableListOf<List<KeyboardButton>>()
+        .also { FooterContext(it).definition() }
+) {
+    if (this.isNotEmpty()) {
+        KeyboardReplyMarkup(
+            keyboard = this,
+            resizeKeyboard = true
+        )
+    } else {
+        HideKeyboardReplyMarkup()
+    }
+}
 
 class FooterContext(private val list: MutableList<List<KeyboardButton>>) {
     fun row(definition: RowContext.() -> Unit) {
@@ -369,7 +395,8 @@ class Call(
     override val messageId: Long?,
     override val username: String,
     override val bot: Bot
-): CallContext
+) : CallContext
+
 sealed interface CallContext {
     val query: String
     val chatId: Long
@@ -404,5 +431,6 @@ object Query {
 
     fun create(callback: String, vararg params: Any) = callback +
             if (params.isNotEmpty()) prefixDelimeter + params.joinToString(paramDelimeter) else ""
+
     fun params(query: String) = query.dropWhile { it != prefixDelimeter }.drop(1).split(paramDelimeter)
 }

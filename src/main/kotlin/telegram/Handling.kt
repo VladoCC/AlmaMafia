@@ -1,0 +1,1565 @@
+package org.example.telegram
+
+import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.ParseMode
+import org.bson.types.ObjectId
+import org.example.*
+import org.example.Timer
+import org.example.game.*
+import org.example.game.hostSetPlayerNum
+import org.example.game.initGame
+import org.example.game.stopGames
+import org.example.lua.Script
+import org.example.lua.prepareScripts
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.*
+import kotlin.math.max
+
+object MafiaHandler {
+    val textHandler = TextHandler(errorProcessor = { bot.error(chatId) }) {
+        val account = accounts.get(chatId)
+        block(account == null) {
+            any {
+                initAccount(username, chatId, bot)
+            }
+        }
+
+        adminCommands()
+
+        simple(editSettingsCommand) {
+            bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+            hostSettings.get(chatId)?.let {
+                showSettingsMenu(it, chatId, -1L, -1L, bot)
+            }
+        }
+
+        when (account!!.state) {
+            AccountState.Init -> {
+                initCommands()
+            }
+
+            AccountState.Menu -> {
+                menuCommands(account)
+            }
+
+            AccountState.Admin -> {
+                hostSetupCommands()
+            }
+
+            AccountState.Host -> {
+                hostCommands(account)
+            }
+
+
+            AccountState.Lobby -> {
+                lobbyCommands()
+            }
+
+            else -> bot.error(chatId)
+        }
+    }
+
+    val queryHandler = QueryHandler {
+        if (accounts.get(chatId) == null) {
+            initAccount(username, chatId, bot)
+        }
+        parametrized(blankCommand) {
+
+        }
+        parametrized(deleteMsgCommand) {
+            bot.deleteMessage(ChatId.fromId(chatId), long(0))
+        }
+
+        val chat = ChatId.fromId(chatId)
+        parametrized(acceptNameCommand) {
+            accounts.update(chatId) {
+                name = str(0)
+                state = AccountState.Menu
+            }
+            showMainMenu(chatId, "Добро пожаловать, ${str(0)}", bot)
+            bot.deleteMessage(chat, long(1))
+            bot.deleteMessage(chat, long(2))
+        }
+        parametrized(cancelName) {
+            bot.deleteMessage(chat, long(0))
+            bot.deleteMessage(chat, long(1))
+        }
+
+        menuQueries()
+
+        connectionManagingQueries()
+        parametrized(roleCommand) {
+            roles.get(id(0))?.let { role ->
+                sendClosable("Название: ${role.displayName}\nОписание: ${role.desc}")
+            }
+        }
+        adminQueries()
+        hostQueries(towns)
+        playerQueries()
+    }
+
+    private suspend fun ContainerBlock.BasicContext.lobbyCommands() {
+        connections.find { playerId == chatId }.singleOrNull()?.let { con ->
+            simple(leaveGameCommand, menuCommand, startCommand) {
+                val chat = ChatId.fromId(chatId)
+                bot.deleteMessage(chat, messageId ?: -1L)
+                val res = bot.sendMessage(
+                    chat,
+                    "Вы уверены, что хотите покинуть игру?"
+                )
+                if (res.isSuccess) {
+                    val msgId = res.get().messageId
+                    bot.editMessageReplyMarkup(
+                        chat,
+                        msgId,
+                        replyMarkup = inlineKeyboard {
+                            row {
+                                // todo replace -1L with messageId
+                                button(acceptLeaveCommand, -1L, msgId)
+                                button(deleteMsgCommand named "Нет", msgId)
+                            }
+                        }
+                    )
+                }
+            }
+            any {
+                games.get(con.gameId)?.let { game ->
+                    if (game.state == GameState.Game) {
+                        val chat = ChatId.fromId(game.hostId)
+                        val res = bot.sendMessage(
+                            chat,
+                            "Игрок ${con.pos} - ${con.name()} пишет:\n" + query,
+                        )
+                        if (res.isSuccess) {
+                            val msgId = res.get().messageId
+                            bot.editMessageReplyMarkup(
+                                chat,
+                                msgId,
+                                replyMarkup = inlineKeyboard {
+                                    button(deleteMsgCommand, msgId)
+                                }
+                            )
+                        }
+                        return@any
+                    } else {
+                        val num: Int
+
+                        try {
+                            num = query.toInt()
+                        } catch (e: NumberFormatException) {
+                            bot.error(chatId)
+                            return@any
+                        }
+
+                        val value = if (con.pos == Int.MAX_VALUE) num else -1
+                        bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+                        setPlayerNum(game, con, value, chatId, bot)
+                        return@any
+                    }
+                }
+                bot.error(chatId)
+            }
+        }
+    }
+
+    private suspend fun ContainerBlock.BasicContext.hostCommands(account: Account) {
+        simple(rehostCommand, restartGameCommand, hostCommand) {
+            bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+            val chat = ChatId.fromId(chatId)
+            val res = bot.sendMessage(
+                chat,
+                "Вы уверены, что хотите перезапустить игру?"
+            )
+            if (res.isSuccess) {
+                val msgId = res.get().messageId
+                bot.editMessageReplyMarkup(
+                    chat,
+                    msgId,
+                    replyMarkup = inlineKeyboard {
+                        row {
+                            button(acceptRehostCommand, msgId)
+                            button(deleteMsgCommand named "Нет", msgId)
+                        }
+                    }
+                )
+            }
+        }
+        simple(stopGameCommand, menuCommand) {
+            val chat = ChatId.fromId(chatId)
+            bot.deleteMessage(chat, messageId ?: -1L)
+            val res = bot.sendMessage(
+                chat,
+                "Вы уверены, что хотите завершить игру?"
+            )
+            if (res.isSuccess) {
+                val msgId = res.get().messageId
+                bot.editMessageReplyMarkup(
+                    chat,
+                    msgId,
+                    replyMarkup = inlineKeyboard {
+                        row {
+                            button(acceptStopCommand, accounts.get(chatId)?.menuMessageId ?: -1L, msgId)
+                            button(deleteMsgCommand named "Нет", msgId)
+                        }
+                    }
+                )
+            }
+        }
+        simple(startCommand) {
+            stopGames(games.find { hostId == chatId }, chatId, bot)
+        }
+        any {
+            games.find { hostId == chatId }.singleOrNull()?.let { game ->
+                if (game.state == GameState.Dummy) {
+                    connections.save(
+                        Connection(
+                            ObjectId(),
+                            game.id,
+                            -1,
+                            query,
+                            "оффлайн",
+                            true
+                        )
+                    )
+                    games.updateMany(
+                        { hostId == chatId },
+                        { state = GameState.Connect }
+                    )
+                    showLobbyMenu(chatId, account.menuMessageId, game, bot)
+                    bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+                    return@any
+                } else if (game.state == GameState.Rename && account.connectionId != null) {
+                    connections.get(account.connectionId!!)?.let { con ->
+                        if (con.gameId == game.id) {
+                            val newName = query
+                            connections.update(con.id) {
+                                name = newName
+                            }
+                            games.update(game.id) {
+                                state = GameState.Connect
+                            }
+                            bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+                            /*bot.sendMessage(
+                                        ChatId.fromId(chatId),
+                                        "Имя игрока " + (if (con.pos < Int.MAX_VALUE) "номер ${con.pos} " else "") +
+                                                "изменено с ${con.name} на $newName.",
+                                    )*/
+                            showLobbyMenu(chatId, account.menuMessageId, game, bot)
+                        }
+                        return@any
+                    }
+                } else if (game.state == GameState.Num) {
+                    val num = try {
+                        query.toInt()
+                    } catch (e: NumberFormatException) {
+                        bot.error(chatId)
+                        return@any
+                    }
+                    bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+                    if (num > 0) {
+                        hostSetPlayerNum(game, account.connectionId, num, account.menuMessageId, chatId, bot)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun ContainerBlock.BasicContext.hostSetupCommands() {
+        any {
+            val adminMenu = adminContexts.get(chatId)
+            if (adminMenu?.state == AdminState.HOST_TIME || adminMenu?.state == AdminState.HOST_GAMES) {
+                bot.deleteMessage(ChatId.fromId(chatId), adminMenu.descId)
+                val num: Int
+                try {
+                    num = query.toInt()
+                } catch (e: NumberFormatException) {
+                    bot.error(chatId, "Не удалось распознать число")
+                    return@any
+                }
+
+                if (num > 0) {
+                    val editFilter: HostInfo.() -> Boolean = { this.chatId == adminMenu.editId }
+                    val hostInfo = hostInfos.find(editFilter).singleOrNull()
+                    if (hostInfo != null) {
+                        hostInfos.update(hostInfo.chatId) {
+                            if (adminMenu.state == AdminState.HOST_TIME) {
+                                timeLimit = true
+                                until = Date.from(Instant.now().plus(num.toLong(), ChronoUnit.DAYS))
+                            } else if (adminMenu.state == AdminState.HOST_GAMES) {
+                                gameLimit = true
+                                left = num
+                            }
+                        }
+
+                        showHostSettings(adminMenu.messageId, chatId, bot)
+                        messageId?.let { id -> bot.deleteMessage(ChatId.fromId(chatId), id) }
+                        adminContexts.update(chatId) {
+                            state = AdminState.NONE
+                            editId = -1L
+                            messageId = -1L
+                            descId = -1L
+                        }
+                    }
+
+                    return@any
+                } else {
+                    bot.error(chatId, "Число должно быть положительным")
+                }
+            }
+            bot.error(chatId)
+        }
+    }
+
+    private suspend fun ContainerBlock.BasicContext.menuCommands(account: Account) {
+        simple(hostCommand, startGameCommand) {
+            val chat = ChatId.fromId(chatId)
+            bot.deleteMessage(chat, account.menuMessageId)
+            bot.deleteMessage(chat, messageId ?: -1L)
+            if (!canHost(chatId)) {
+                createHostRequest(chatId)
+                bot.error(chatId, "Возможность создания игры недоступна для вашего аккаунта.")
+                return@simple
+            }
+
+            try {
+                val id = games.save(Game(ObjectId(), chatId))
+                val game = games.get(id)
+                initGame(game, Config().path, chatId, -1L, bot)
+            } catch (e: Exception) {
+                log.error("Unable to host game for ${account.fullName()}", e)
+            }
+        }
+        simple(menuCommand, startCommand) {
+            if (messageId != null) {
+                bot.deleteMessage(ChatId.fromId(chatId), messageId)
+                showMainMenu(chatId, "Открываем главное меню", bot)
+            }
+        }
+        simple(changeNameCommand) {
+            bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+            initAccount(username, chatId, bot)
+        }
+    }
+
+    private suspend fun ContainerBlock.BasicContext.initCommands() {
+        any {
+            val chat = ChatId.fromId(chatId)
+            val res = bot.sendMessage(
+                chat,
+                "Введено имя: <b>$query</b>\nВы хотите его установить?",
+                parseMode = ParseMode.HTML
+            )
+
+            if (res.isSuccess) {
+                val msgId = res.get().messageId
+                bot.editMessageReplyMarkup(
+                    chat,
+                    msgId,
+                    replyMarkup = inlineKeyboard {
+                        row {
+                            button(acceptNameCommand, query, msgId, messageId ?: -1)
+                            button(cancelName, msgId, messageId ?: -1)
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    private suspend fun ContainerBlock.BasicContext.adminCommands() {
+        if (isAdmin(chatId)) {
+            simple(adCommand) {
+                val chat = ChatId.fromId(chatId)
+                bot.deleteMessage(chat, messageId ?: -1L)
+                showAdMenu(chat, bot)
+            }
+            simple(adNewCommand) {
+                val chat = ChatId.fromId(chatId)
+                val res = bot.sendMessage(
+                    chat,
+                    Const.Message.enterAdText
+                )
+                if (res.isSuccess) {
+                    val msgId = res.get().messageId
+                    bot.editMessageReplyMarkup(
+                        chat,
+                        msgId,
+                        replyMarkup = inlineKeyboard {
+                            button(closePopupCommand, chatId)
+                        }
+                    )
+                    adPopups.save(AdPopup(ObjectId(), chatId, msgId))
+                }
+            }
+            simple(adminCommand, adminPanelCommand) {
+                if (messageId != null) {
+                    bot.deleteMessage(ChatId.fromId(chatId), messageId)
+                }
+                val res = bot.sendMessage(
+                    ChatId.fromId(chatId),
+                    "Меню администратора:"
+                )
+                if (res.isSuccess) {
+                    val messageId = res.get().messageId
+                    showAdmin(chatId, messageId, bot)
+                }
+            }
+            adPopups.get(chatId)?.let {
+                any {
+                    val chat = ChatId.fromId(chatId)
+                    bot.deleteMessage(chat, messageId ?: -1L)
+                    bot.deleteMessage(chat, it.messageId)
+                    ads.save(Message(ObjectId(), query))
+                    adPopups.delete(chatId)
+                }
+            }
+        }
+    }
+
+    private suspend fun ContainerBlock.ParametrizedContext.menuQueries() {
+        parametrized(joinCommand) {
+            val game = games.get(id(0))
+            val messageId = long(1)
+            if (game == null || game.state == GameState.Game) {
+                bot.sendMessage(
+                    ChatId.fromId(chatId),
+                    if (game == null) {
+                        "Не удалось подключиться к игре. Обновляем список игр доступных для подключения."
+                    } else {
+                        "Невозможно подключиться к игре. Ведущий уже начал игру. Обновляем список игр доступных для подключения."
+                    }
+                )
+                showGames(chatId, messageId, bot)
+                return@parametrized
+            }
+
+            withAccount(chatId) { account ->
+                if (account.state != AccountState.Menu) {
+                    bot.sendMessage(
+                        ChatId.fromId(chatId),
+                        "Не удалось подключиться к игре. Вернитесь в меню прежде чем подключаться к играм."
+                    )
+                    return@withAccount
+                }
+
+                val kick = kicks.find { gameId == game.id && player == chatId }.singleOrNull()
+                if (kick != null) {
+                    bot.sendMessage(
+                        ChatId.fromId(chatId),
+                        "Не удалось подключиться к игре. Ведущий исключил вас из игры."
+                    )
+                    return@withAccount
+                }
+
+                if (messageId != -1L) {
+                    bot.deleteMessage(ChatId.fromId(chatId), messageId)
+                }
+                joinGame(game, account, chatId, messageId, bot)
+            }
+        }
+        parametrized(updateCommand) {
+            showGames(chatId, long(0), bot)
+        }
+    }
+
+    private suspend fun ContainerBlock.ParametrizedContext.connectionManagingQueries() {
+        /** with Connection **/
+        block({ notNull { if (isId(0)) connections.get(id(0)) else null } }) { con ->
+            /** with Game **/
+            block({ notNull { games.get(con.gameId) } }) { game ->
+                parametrized(playerNumCommand) {
+                    connections.update(id(0)) {
+                        pos = int(1).let { if (it > 0) it else Int.MAX_VALUE }
+                    }
+                    pendings.save(
+                        Pending(
+                            ObjectId(),
+                            game.hostId,
+                            game.id,
+                            Date(System.currentTimeMillis() + sendPendingAfterSec * 1000L)
+                        )
+                    )
+                    bot.editMessageReplyMarkup(
+                        ChatId.fromId(chatId),
+                        long(2),
+                        replyMarkup = numpadKeyboard(
+                            "Номер игрока",
+                            playerNumCommand,
+                            playerConfirmCommand,
+                            mainMenuCommand,
+                            id(0),
+                            int(1),
+                            long(2)
+                        )
+                    )
+                }
+                parametrized(playerConfirmCommand) {
+                    setPlayerNum(game, con, int(1), chatId, bot)
+                }
+
+                /** is game host **/
+                block(game.hostId == chatId) {
+                    parametrized(newHostCommand) {
+                        games.update(game.id) {
+                            state = GameState.ChangeHost
+                        }
+                        bot.editMessageReplyMarkup(
+                            ChatId.fromId(chatId),
+                            long(1),
+                            replyMarkup = inlineKeyboard {
+                                button(blankCommand named "Ожидаем ответа")
+                                button(stopRehostingCommand, long(1))
+                            }
+                        )
+                        val spacedHostName = " " + (accounts.get(chatId)?.fullName() ?: " ") + ""
+                        val chat = ChatId.fromId(con.playerId)
+                        val res = bot.sendMessage(
+                            chat,
+                            "Ведущий${spacedHostName} предлагает вам стать новым ведущим игры.\nПринять?",
+                        )
+                        if (res.isSuccess) {
+                            val msgId = res.get().messageId
+                            rehosts.save(Rehost(ObjectId(), game.id, con.playerId, msgId))
+                            bot.editMessageReplyMarkup(
+                                chat,
+                                msgId,
+                                replyMarkup = inlineKeyboard {
+                                    row {
+                                        button(acceptHostingCommand, game.id, chatId, msgId)
+                                        button(declineHostingCommand, game.id, chatId, msgId)
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    parametrized(detailsCommand) {
+                        bot.editMessageReplyMarkup(
+                            ChatId.fromId(chatId),
+                            long(1),
+                            replyMarkup = inlineKeyboard {
+                                row {
+                                    button(blankCommand named con.name())
+                                    button(
+                                        positionCommand named (if (con.pos < Int.MAX_VALUE) con.pos.toString() else "Указать номер"),
+                                        con.id,
+                                        0,
+                                        messageId ?: -1L
+                                    )
+                                }
+                                row {
+                                    button(renameCommand, id(0), long(1))
+                                    if (!con.bot) {
+                                        button(handCommand, id(0))
+                                    }
+                                    button(kickCommand, id(0), long(1))
+                                }
+                                button(menuLobbyCommand, long(1))
+                            }
+                        )
+                    }
+                    parametrized(renameCommand) {
+                        if (game.state != GameState.Connect) {
+                            return@parametrized
+                        }
+                        games.update(game.id) {
+                            state = GameState.Rename
+                        }
+                        accounts.update(chatId) {
+                            connectionId = con.id
+                        }
+
+                        bot.editMessageReplyMarkup(
+                            ChatId.fromId(chatId),
+                            long(1),
+                            replyMarkup = inlineKeyboard {
+                                row { button(command("Введите новое имя для игрока ${con.name()}", "default")) }
+                                row { button(nameCancelCommand, long(1)) }
+                            }
+                        )
+                    }
+                    parametrized(positionCommand) {
+                        accounts.update(chatId) {
+                            connectionId = con.id
+                        }
+                        games.update(game.id) {
+                            state = GameState.Num
+                        }
+                        bot.editMessageReplyMarkup(
+                            ChatId.fromId(chatId),
+                            long(2),
+                            replyMarkup = numpadKeyboard(
+                                "Введите номер для игрока ${con.name()}",
+                                positionCommand,
+                                posSetCommand,
+                                hostBackCommand,
+                                id(0),
+                                int(1),
+                                long(2)
+                            )
+                        )
+                    }
+                    parametrized(handCommand) {
+                        if (!con.bot) {
+                            bot.sendMessage(
+                                ChatId.fromId(con.playerId),
+                                "Ведущий просит вас поднять руку"
+                            )
+                        }
+                    }
+
+                    parametrized(kickCommand) {
+                        connections.delete(con.id)
+                        if (!con.bot) {
+                            accounts.update(con.playerId) {
+                                state = AccountState.Menu
+                            }
+                            showMainMenu(
+                                con.playerId,
+                                "Ведущий исключил вас из игры. Возвращаемся в главное меню.",
+                                bot
+                            )
+                            kicks.save(
+                                Kick(
+                                    ObjectId(),
+                                    con.gameId,
+                                    con.playerId
+                                )
+                            )
+                        }
+                        showLobbyMenu(chatId, long(1), game, bot)
+                    }
+                    parametrized(posSetCommand) {
+                        hostSetPlayerNum(game, id(0), int(1), long(2), chatId, bot)
+                    }
+                    parametrized(markBotCommand) {
+                        connections.update(id(0)) {
+                            notified = !notified
+                        }
+                        showRevealMenu(game, bot, chatId, long(1))
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun ContainerBlock.ParametrizedContext.adminQueries() {
+        if (isAdmin(chatId)) {
+            parametrized(closePopupCommand) {
+                adPopups.get(long(0))?.let { popup ->
+                    bot.deleteMessage(ChatId.fromId(popup.chatId), popup.messageId)
+                    adPopups.delete(long(0))
+                }
+            }
+            parametrized(advertCommand) {
+                showAdMenu(ChatId.fromId(chatId), bot)
+            }
+            parametrized(updateCheckCommand) {
+                updateCheck(str(0))
+                showAdmin(chatId, long(1), bot)
+            }
+            parametrized(hostRequestCommand) {
+                showHostRequests(long(0), chatId, bot)
+            }
+            parametrized(hostSettingsCommand) {
+                showHostSettings(long(0), chatId, bot)
+            }
+            parametrized(adminSettingsCommand) {
+                val messageId = long(0)
+                showAdminListMenu(chatId, messageId, bot)
+            }
+            parametrized(timeLimitOnCommand) {
+                val res = bot.sendMessage(ChatId.fromId(chatId), "Введите срок действия разрешения в днях:")
+                if (res.isSuccess) {
+                    val desc = res.get().messageId
+                    createAdminContext(desc, AdminState.HOST_TIME)
+                }
+            }
+            parametrized(timeLimitOffCommand) {
+                hostInfos.update(long(0)) { timeLimit = false }
+                showHostSettings(long(1), chatId, bot)
+            }
+            parametrized(gameLimitOnCommand) {
+                val res = bot.sendMessage(ChatId.fromId(chatId), "Введите количество разрешенных игр:")
+                if (res.isSuccess) {
+                    val desc = res.get().messageId
+                    createAdminContext(desc, AdminState.HOST_GAMES)
+                }
+            }
+            parametrized(gameLimitOffCommand) {
+                hostInfos.update(long(0)) { gameLimit = false }
+                showHostSettings(long(1), chatId, bot)
+            }
+            parametrized(shareCommand) {
+                hostInfos.get(long(0))?.let {
+                    hostInfos.update(long(0)) { canShare = !it.canShare }
+                    showHostSettings(long(1), chatId, bot)
+                }
+            }
+            parametrized(deleteHostCommand) {
+                hostInfos.delete(long(0))
+                showHostSettings(long(1), chatId, bot)
+            }
+            parametrized(promoteHostCommand) {
+                accounts.get(long(0))?.let {
+                    val chat = ChatId.fromId(chatId)
+                    val res = bot.sendMessage(chat, "Вы уверены, что хотите сделать ${it.fullName()} администратором?")
+                    if (res.isSuccess) {
+                        val msgId = res.get().messageId
+                        bot.editMessageReplyMarkup(
+                            chat,
+                            msgId,
+                            replyMarkup = inlineKeyboard {
+                                row {
+                                    button(confirmPromoteCommand, long(0), long(1), msgId)
+                                    button(deleteMsgCommand named "Нет", msgId)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            parametrized(confirmPromoteCommand) {
+                bot.deleteMessage(ChatId.fromId(chatId), long(2))
+                admins.save(UserId(ObjectId(), long(0)))
+                showHostSettings(long(1), chatId, bot)
+            }
+            parametrized(allowHostCommand) {
+                hostInfos.save(HostInfo(ObjectId(), long(0)))
+                hostRequests.delete(long(0))
+                if (accounts.get(long(0))?.state == AccountState.Menu) {
+                    bot.sendMessage(
+                        ChatId.fromId(long(0)),
+                        "Вашему аккаунту предоставлена возможность вести игры",
+                        replyMarkup = mafiaKeyboard(long(0))
+                    )
+                }
+                showHostRequests(long(1), chatId, bot)
+            }
+            parametrized(denyHostCommand) {
+                hostRequests.delete(long(0))
+                showHostRequests(long(1), chatId, bot)
+            }
+            parametrized(removeAdminCommand) {
+                admins.delete(long(0))
+                showAdminListMenu(chatId, long(1), bot)
+            }
+            parametrized(adminBackCommand) {
+                showAdmin(chatId, long(0), bot)
+                accounts.update(chatId) {
+                    state = AccountState.Menu
+                }
+                adminContexts.delete(chatId)
+            }
+            parametrized(gamesSettingsCommand) {
+                showGameStatusMenu(chatId, long(0), bot)
+            }
+            parametrized(terminateGameCommand) {
+                games.get(id(0))?.let { game ->
+                    val chat = ChatId.fromId(chatId)
+                    val res = bot.sendMessage(
+                        chat,
+                        "Игра ${game.name()} будет завершена. Все игроки и ведущий отправлены в меню.\nВы уверены, что хотите завершить игру?",
+                    )
+                    if (res.isSuccess) {
+                        val msgId = res.get().messageId
+                        bot.editMessageReplyMarkup(
+                            chat,
+                            msgId,
+                            replyMarkup = inlineKeyboard {
+                                row {
+                                    button(confirmTerminateCommand, id(0), msgId, long(1))
+                                    button(deleteMsgCommand named "Нет", msgId)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            parametrized(confirmTerminateCommand) {
+                val chat = ChatId.fromId(chatId)
+                bot.deleteMessage(chat, long(1))
+                bot.deleteMessage(chat, long(2))
+                games.get(id(0))?.let { game ->
+                    stopGame(game, game.hostId, bot)
+                }
+            }
+            parametrized(sendAdCommand) {
+                val game = games.get(id(0))
+                if (game != null) {
+                    showAd(game, connections.find { gameId == game.id }, bot, long(1), chatId)
+                } else {
+                    gameHistory.find { this.game.id == id(0) }.lastOrNull()?.let {
+                        showAd(it.game, it.connections, bot, long(1), chatId)
+                    }
+                }
+            }
+            parametrized(sendAdHistoryCommand) {
+                gameHistory.get(id(0))?.let {
+                    showAd(it.game, it.connections, bot, long(1), chatId)
+                }
+            }
+            parametrized(adSelectCommand) {
+                ads.get(id(0))?.let { ad ->
+                    adTargets.get(id(1))?.let { target ->
+                        adTargets.delete(id(1))
+                        val chat = ChatId.fromId(chatId)
+                        target.messages.forEach {
+                            bot.deleteMessage(chat, it)
+                        }
+                        selectAd(target.game, target.connections, bot, ad)
+                    }
+                }
+            }
+            parametrized(adClearCommand) {
+                adTargets.get(id(0))?.let { target ->
+                    adTargets.delete(id(0))
+                    val chat = ChatId.fromId(chatId)
+                    target.messages.forEach {
+                        bot.deleteMessage(chat, it)
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun ContainerBlock.ParametrizedContext.hostQueries(towns: MutableMap<GameId, Town>) {
+        parametrized(acceptStopCommand) {
+            stopGames(games.find { hostId == chatId }, chatId, bot, long(0), long(1))
+        }
+
+        /** with Game of this host **/
+        block({ notNull { games.find { hostId == chatId }.singleOrNull() } }) { game ->
+            parametrized(menuKickCommand) {
+                showKickMenu(game, long(0), bot, chatId)
+            }
+            parametrized(changeHostCommand) {
+                games.update(game.id) {
+                    state = GameState.ChangeHost
+                }
+                fun name(connection: Connection) =
+                    (if (connection.pos > 0 && connection.pos != Int.MAX_VALUE) connection.pos.toString() + ". " else "") + connection.name()
+                bot.editMessageReplyMarkup(
+                    ChatId.fromId(chatId),
+                    long(0),
+                    replyMarkup = inlineKeyboard {
+                        button(blankCommand named "Выбор нового ведушего")
+                        reordered(connections.find { gameId == game.id }.sortedBy { it.pos }).chunked(2).forEach { list ->
+                            val first = list[0]
+                            button(newHostCommand named name(first), first.id, long(0))
+                            if (list.size > 1) {
+                                val second = list[1]
+                                button(newHostCommand named name(second), second.id, long(0))
+                            }
+                        }
+                        button(hostBackCommand, long(0))
+                    }
+                )
+            }
+            parametrized(stopRehostingCommand) {
+                rehosts.get(game.id)?.let {
+                    bot.deleteMessage(ChatId.fromId(it.hostId), it.messageId)
+                    games.update(game.id) {
+                        state = GameState.Connect
+                    }
+                    rehosts.delete(it.gameId)
+                    showLobbyMenu(chatId, game.host?.menuMessageId ?: -1L, game, bot)
+                }
+            }
+            parametrized(resetNumsCommand) {
+                val chat = ChatId.fromId(chatId)
+                val res = bot.sendMessage(
+                    chat,
+                    "Вы уверены, что хотите сбросить номера игроков?",
+                )
+                if (res.isSuccess) {
+                    val msgId = res.get().messageId
+                    bot.editMessageReplyMarkup(
+                        chat,
+                        msgId,
+                        replyMarkup = inlineKeyboard {
+                            row {
+                                button(confirmResetCommand, long(0), msgId)
+                                button(deleteMsgCommand named "Нет", msgId)
+                            }
+                        }
+                    )
+                }
+            }
+            parametrized(confirmResetCommand) {
+                bot.deleteMessage(ChatId.fromId(chatId), long(1))
+                connections.find { gameId == game.id }.forEach { con ->
+                    connections.update(con.id) {
+                        pos = Int.MAX_VALUE
+                    }
+                    if (!con.bot) {
+                        accounts.get(con.playerId)?.let { acc ->
+                            bot.deleteMessage(ChatId.fromId(acc.chatId), acc.menuMessageId)
+                            val msgId = showPlayerMenu(acc.chatId, -1L, bot, con.id)
+                            accounts.update(con.playerId) {
+                                menuMessageId = msgId
+                            }
+                        }
+                    }
+                }
+                accounts.get(chatId)?.let {
+                    showLobbyMenu(chatId, it.menuMessageId, game, bot)
+                }
+            }
+            parametrized(hostBackCommand, menuLobbyCommand) {
+                games.update(game.id) {
+                    state = GameState.Connect
+                }
+                showLobbyMenu(chatId, long(0), game, bot)
+            }
+            parametrized(menuRolesCommand) {
+                games.update(game.id) {
+                    state = GameState.Roles
+                }
+                if (setups.find { gameId == game.id && count > 0 }.isEmpty()) {
+                    setups.deleteMany { gameId == game.id }
+                    roles.find { gameId == game.id }.forEach {
+                        setups.save(Setup(ObjectId(), it.id, game.id, it.index))
+                    }
+                }
+                showRoles(chatId, long(0), bot, game)
+            }
+            parametrized(menuPreviewCommand) {
+                games.update(game.id) {
+                    state = GameState.Preview
+                }
+                showPreview(bot, chatId, long(0), game)
+            }
+            parametrized(gameCommand) {
+                val cons = connections.find { gameId == game.id }
+                val noNum = cons.filter { it.pos == Int.MAX_VALUE }
+                if (noNum.isNotEmpty()) {
+                    sendClosable("Невозможно начать игру:\n" + noNum.joinToString("\n") { "Не указан номер для игрока ${it.name()}" })
+                    return@parametrized
+                }
+
+                val notPositive = cons.filter { it.pos < 1 }
+                if (notPositive.isNotEmpty()) {
+                    sendClosable("Невозможно начать игру:\n" + notPositive.joinToString("\n") { "Номер игрока ${it.name()} должен быть позитвным, обнаружен номер ${it.pos}" })
+                    return@parametrized
+                }
+
+                val numMap = mutableMapOf<Int, Int>()
+                cons.forEach {
+                    numMap.compute(it.pos) { _, v ->
+                        if (v == null) 1 else v + 1
+                    }
+                }
+                val errors = numMap.filter { it.value > 1 }.toList()
+                if (errors.isNotEmpty()) {
+                    sendClosable("Невозможно начать игру:\n" + errors.joinToString("\n") { "Обнаружено несколько игроков с номером ${it.first}" })
+                    return@parametrized
+                }
+
+                val roleList = setups.find { gameId == game.id }
+                val roleCount = roleList.sumOf { it.count }
+                if (cons.size != roleCount) {
+                    sendClosable("Невозможно начать игру:\nКоличество игроков не совпадает с количеством ролей.\nИгроков: ${cons.size}\nРолей: $roleCount")
+                    return@parametrized
+                }
+                val pairs =
+                    pairings.find { gameId == game.id }
+                        .associate { connections.get(it.connectionId) to roles.get(it.roleId) }
+                val errorCons = cons.filter { !pairs.containsKey(it) }
+                if (errors.isNotEmpty()) {
+                    sendClosable("Невозможно начать игру:\n" + errorCons.joinToString("\n") { "Не указана роль для игрока ${it.name()}" })
+                    return@parametrized
+                }
+
+                modes.save(
+                    GameMode(
+                        ObjectId(),
+                        game.id,
+                        Mode.OPEN
+                    )
+                )
+                if (game.host?.settings == null) {
+                    hostSettings.save(HostSettings(ObjectId(), chatId))
+                }
+                hostInfos.updateMany(
+                    { this.chatId == game.creatorId && this.gameLimit },
+                    { left -= 1 }
+                )
+                bot.editMessageReplyMarkup(
+                    ChatId.fromId(chatId),
+                    long(1),
+                    replyMarkup = inlineKeyboard {
+                        button(blankCommand named "Выберите тип игры")
+                        Mode.entries.forEach {
+                            button(gameModeCommand named it.type, it.name, long(1))
+                        }
+                        button(menuPreviewCommand named "Назад", long(1))
+                    }
+                )
+            }
+
+            parametrized(nameCancelCommand) {
+                if (game.state !in setOf(GameState.Rename, GameState.Dummy)) {
+                    return@parametrized
+                }
+                games.update(game.id) {
+                    state = GameState.Connect
+                }
+                accounts.update(chatId) {
+                    connectionId = null
+                }
+                showLobbyMenu(chatId, long(0), game, bot)
+            }
+
+            parametrized(dummyCommand) {
+                if (game.state != GameState.Connect) {
+                    return@parametrized
+                }
+                games.update(game.id) {
+                    state = GameState.Dummy
+                }
+                bot.editMessageReplyMarkup(
+                    ChatId.fromId(chatId),
+                    long(0),
+                    replyMarkup = inlineKeyboard {
+                        row { button(command("Введите имя для нового игрока", "default")) }
+                        row { button(nameCancelCommand, long(0)) }
+                    }
+                )
+            }
+            parametrized(decrCommand) {
+                setups.update(id(0)) {
+                    count = max(count - 1, 0)
+                }
+                showRoles(chatId, long(1), bot, game)
+            }
+            parametrized(incrCommand) {
+                setups.update(id(0)) {
+                    count = max(count + 1, 0)
+                }
+                showRoles(chatId, long(1), bot, game)
+            }
+            parametrized(resetRolesCommand) {
+                setups.updateMany({ gameId == id(0) }) {
+                    count = 0
+                }
+                showRoles(chatId, long(1), bot, game)
+            }
+            parametrized(previewCommand, updateRolesCommand) {
+                modes.deleteMany { gameId == game.id }
+                deleteGameTimers(bot, game.id)
+
+                var roleCount = 0
+                val roleList = mutableListOf<Role>()
+                setups.find { gameId == game.id }.forEach {
+                    roleCount += it.count
+                    val role = roles.get(it.roleId)!!
+                    (1..it.count).forEach { _ ->
+                        roleList.add(role)
+                    }
+                }
+
+                pairings.deleteMany { gameId == game.id }
+                val cons = mutableListOf<Connection>()
+                connections.find { gameFilter(game) }.sortedWith(compareBy({ it.pos }, { it.createdAt })).forEach {
+                    cons.add(it)
+                }
+
+                games.update(game.id) {
+                    state = GameState.Preview
+                }
+
+                roleList.shuffle()
+                roleList.indices.forEach {
+                    val role = roleList[it]
+                    if (cons.size > it) {
+                        val con = cons[it]
+                        pairings.save(
+                            Pairing(
+                                ObjectId(),
+                                game.id,
+                                con.id,
+                                role.id
+                            )
+                        )
+                    }
+                }
+                showPreview(bot, chatId, long(1), game)
+            }
+
+            parametrized(gameModeCommand) {
+                Mode.valueOf(str(0)).let { mode ->
+                    modes.update(game.id) { this.mode = mode }
+                    prepareScripts()
+                    val scriptMap = roles.find { gameId == game.id }.filter { it.scripted }
+                        .associate { it.name to Script(it.name, scriptDir) }
+                    scripts[game.id] = scriptMap
+                    if (checks.get(CheckOption.REVEAL_MENU)) {
+                        games.update(game.id) {
+                            state = GameState.Reveal
+                        }
+                        val list = pairings.find { gameId == game.id }.mapNotNull { pair ->
+                            connections.update(pair.connectionId) { notified = false }
+                            connections.get(pair.connectionId)?.let { con ->
+                                if (con.bot) {
+                                    return@mapNotNull null
+                                }
+                                accounts.get(con.playerId)?.let { acc ->
+                                    val playerChat = ChatId.fromId(con.playerId)
+                                    bot.deleteMessage(playerChat, acc.menuMessageId)
+                                    val res = bot.sendMessage(
+                                        playerChat,
+                                        "Роли выданы"
+                                    )
+                                    if (res.isSuccess) {
+                                        val msgId = res.get().messageId
+                                        bot.editMessageReplyMarkup(
+                                            playerChat,
+                                            msgId,
+                                            replyMarkup = inlineKeyboard {
+                                                button(revealRoleCommand, pair.roleId, msgId)
+                                                button(gameInfoCommand, game.id)
+                                            }
+                                        )
+                                        MessageLink(con.playerId, msgId)
+                                    } else {
+                                        null
+                                    }
+                                }
+                            }
+                        }
+                        if (checks.get(CheckOption.GAME_MESSAGES)) {
+                            gameMessages.save(
+                                GameMessage(
+                                    ObjectId(),
+                                    game.id,
+                                    list
+                                )
+                            )
+                        }
+                        showRevealMenu(game, bot, chatId, long(1))
+                    } else {
+                        bot.deleteMessage(ChatId.fromId(chatId), long(1))
+                        startGame(
+                            chatId,
+                            bot
+                        )
+                    }
+                }
+            }
+            parametrized(proceedCommand) {
+                bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                startGame(
+                    chatId,
+                    bot
+                )
+            }
+            parametrized(settingsCommand) {
+                game.host?.settings?.let {
+                    showSettingsMenu(it, chatId, -1L, long(0), bot)
+                }
+            }
+            parametrized(nightCommand) {
+                try {
+                    bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                    accounts.update(chatId) {
+                        menuMessageId = -1L
+                    }
+                    deleteGameTimers(bot, game.id)
+                    towns[game.id]?.let { town ->
+                        bot.sendMessage(
+                            ChatId.fromId(chatId),
+                            "Результат дня:\n${shortLog(town).ifBlank { "Не произошло никаких событий" }}"
+                        )
+                        town.updateTeams()
+                        town.prepNight()
+                        showNightRoleMenu(town, chatId, bot, -1L)
+                    }
+                } catch (e: Exception) {
+                    log.error("Unable to start night, game: $game", e)
+                }
+            }
+            parametrized(timerCommand) {
+                if (timers.get(chatId) == null) {
+                    val res = bot.sendMessage(
+                        ChatId.fromId(chatId),
+                        "Таймер:"
+                    )
+                    if (res.isSuccess) {
+                        val messageId = res.get().messageId
+                        val timer = Timer(ObjectId(), chatId, game.id, messageId, System.currentTimeMillis(), 0L)
+                        timers.save(
+                            timer
+                        )
+                    }
+                }
+            }
+            parametrized(timerDeleteCommand) {
+                timers.get(chatId)?.let {
+                    deleteTimer(it, bot)
+                }
+            }
+            parametrized(timerStateCommand) {
+                timers.update(chatId) {
+                    active = !active
+                    updated = true
+                    timestamp = System.currentTimeMillis()
+                }
+            }
+            parametrized(timerResetCommand) {
+                timers.update(chatId) {
+                    updated = true
+                    time = 0L
+                    timestamp = System.currentTimeMillis()
+                }
+            }
+
+            parametrized(unkickCommand) {
+                kicks.get(id(0))?.let { kick ->
+                    accounts.get(kick.player)?.let { _ ->
+                        kicks.delete(id(0))
+                        showKickMenu(game, long(1), bot, chatId)
+                    }
+                }
+            }
+
+            parametrized(acceptRehostCommand) {
+                bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                val gameList = games.find { hostId == chatId }
+                if (gameList.size > 1) {
+                    gameList.dropLast(1).forEach {
+                        deleteGame(it, bot)
+                    }
+                }
+                gameList.lastOrNull()?.let { game ->
+                    if (!canHost(game.creatorId)) {
+                        createHostRequest(chatId)
+                        bot.error(chatId, "Возможность создания игры недоступна для вашего аккаунта.")
+                        return@parametrized
+                    }
+
+                    //updateSetup(path, roles, game, types, orders)
+                    if (checks.get(CheckOption.GAME_MESSAGES)) {
+                        gameMessages.get(game.id)?.let {
+                            it.list.forEach { msg ->
+                                bot.deleteMessage(
+                                    ChatId.fromId(msg.chatId),
+                                    msg.messageId
+                                )
+                            }
+                        }
+                    }
+
+                    games.update(game.id) {
+                        state = GameState.Connect
+                    }
+                    pendings.deleteMany { host == chatId }
+                    //setups.deleteMany { gameId == game.id }
+                    pairings.deleteMany { gameId == game.id }
+                    towns.remove(game.id)
+                    accounts.update(chatId) {
+                        connectionId = null
+                    }
+                    connections.updateMany({ gameId == game.id }) {
+                        notified = false
+                    }
+                    connections.find { gameId == game.id }.forEach { con ->
+                        if (!con.bot) {
+                            showPlayerMenu(con.playerId, -1L, bot, con.id, con.pos)
+                        }
+                    }
+
+                    showLobbyMenu(chatId, game.host?.menuMessageId ?: -1L, game, bot)
+                }
+            }
+
+            block({ notNull { towns[game.id] } }) { town ->
+                val mode = game.host?.settings
+                parametrized(dayDetailsCommand) {
+                    accounts.get(chatId)?.let { acc ->
+                        val msgId = if (acc.menuMessageId != -1L) acc.menuMessageId else long(1)
+                        showPlayerDayDesc(town, int(0), msgId, chatId, bot)
+                    }
+                }
+                parametrized(dayBackCommand) {
+                    showDayMenu(town, chatId, long(0), bot, game)
+                }
+                parametrized(statusCommand) {
+                    town.changeProtected(int(0))
+                    if (mode?.detailedView != true && checks.get(CheckOption.KEEP_DETAILS)) {
+                        accounts.get(chatId)?.let { acc ->
+                            val msgId = if (acc.menuMessageId != -1L) acc.menuMessageId else long(1)
+                            showPlayerDayDesc(town, int(0), msgId, chatId, bot)
+                        }
+                    } else {
+                        showDayMenu(town, chatId, long(1), bot, game)
+                    }
+                }
+                parametrized(killCommand) {
+                    town.setAlive(int(0), false)
+                    if (mode?.detailedView != true && checks.get(CheckOption.KEEP_DETAILS)) {
+                        accounts.get(chatId)?.let { acc ->
+                            val msgId = if (acc.menuMessageId != -1L) acc.menuMessageId else long(1)
+                            showPlayerDayDesc(town, int(0), msgId, chatId, bot)
+                        }
+                    } else {
+                        showDayMenu(town, chatId, long(1), bot, game)
+                    }
+                }
+                parametrized(reviveCommand) {
+                    town.setAlive(int(0), true)
+                    if (mode?.detailedView != true && checks.get(CheckOption.KEEP_DETAILS)) {
+                        accounts.get(chatId)?.let { acc ->
+                            val msgId = if (acc.menuMessageId != -1L) acc.menuMessageId else long(1)
+                            showPlayerDayDesc(town, int(0), msgId, chatId, bot)
+                        }
+                    } else {
+                        showDayMenu(town, chatId, long(1), bot, game)
+                    }
+                }
+                parametrized(fallCommand) {
+                    val pos = int(0)
+                    val person = town.playerMap[pos]
+                    if (person != null) {
+                        person.fallCount += 1
+                    }
+                    if (mode?.detailedView != true) {
+                        accounts.get(chatId)?.let { acc ->
+                            val msgId = if (acc.menuMessageId != -1L) acc.menuMessageId else long(1)
+                            showPlayerDayDesc(town, int(0), msgId, chatId, bot)
+                        }
+                    } else {
+                        showDayMenu(town, chatId, long(1), bot, game)
+                    }
+                }
+                parametrized(selectCommand) {
+                    if (isId(2)) {
+                        nightSelection(town, int(0), chatId, bot, long(1), id(2))
+                    }
+                }
+                parametrized(executeActionCommand) {
+                    if (town.index < town.night.size) {
+                        executeNightAction(town, town.night[town.index], bot, chatId, long(0))
+                    } else {
+                        skipNightRole(town, chatId, long(0), bot)
+                    }
+                }
+                parametrized(nextRoleCommand) {
+                    town.selections.clear()
+                    showNightRoleMenu(town, chatId, bot, long(0))
+                }
+                parametrized(skipRoleCommand) {
+                    skipNightRole(town, chatId, long(0), bot)
+                }
+                parametrized(dayCommand) {
+                    bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                    town.startDay(chatId, bot, game)
+                }
+                game.host?.settings?.let { settings ->
+                    parametrized(filterCommand) {
+                        towns[game.id]?.let { town ->
+                            val index =
+                                if (DayView.entries.size > settings.dayView.ordinal + 1) settings.dayView.ordinal + 1 else 0
+                            val next = DayView.entries[index]
+                            hostSettings.update(game.hostId) {
+                                dayView = next
+                            }
+                            showDayMenu(town, chatId, long(0), bot, game)
+                        }
+                    }
+                    parametrized(fallModeCommand) {
+                        updateSettingsView(chatId, long(0), long(1), game, town, bot) { fallMode = !fallMode }
+                    }
+                    parametrized(detailedViewCommand) {
+                        updateSettingsView(chatId, long(0), long(1), game, town, bot) { detailedView = !detailedView }
+                    }
+                    parametrized(doubleColumnNightCommand) {
+                        updateSettingsView(chatId, long(0), long(1), game, town, bot) {
+                            doubleColumnNight = !doubleColumnNight
+                        }
+                    }
+                    parametrized(confirmNightSelectionCommand) {
+                        updateSettingsView(chatId, long(0), long(1), game, town, bot) {
+                            confirmNightSelection = !confirmNightSelection
+                        }
+                    }
+                    parametrized(timerSettingCommand) {
+                        updateSettingsView(chatId, long(0), long(1), game, town, bot) { timer = !timer }
+                    }
+                    parametrized(hidePlayersSettingCommand) {
+                        updateSettingsView(chatId, long(0), long(1), game, town, bot) { hideDayPlayers = !hideDayPlayers }
+                    }
+                    parametrized(hidePlayersCommand) {
+                        hostSettings.update(chatId) { playersHidden = !playersHidden }
+                        if (long(0) != -1L) {
+                            showDayMenu(town, chatId, long(0), bot, game)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun ContainerBlock.ParametrizedContext.playerQueries() {
+        parametrized(mainMenuCommand) {
+            bot.deleteMessage(ChatId.fromId(chatId), long(0))
+            leaveGame(
+                chatId,
+                accounts.get(chatId)?.menuMessageId ?: -1L,
+                resetAccount,
+                bot
+            )
+        }
+        parametrized(acceptLeaveCommand) {
+            bot.deleteMessage(ChatId.fromId(chatId), long(0))
+            bot.deleteMessage(ChatId.fromId(chatId), long(1))
+            leaveGame(
+                chatId,
+                accounts.get(chatId)?.menuMessageId ?: -1L,
+                resetAccount,
+                bot
+            )
+        }
+
+        block({ notNull { connections.find { playerId == chatId }.singleOrNull() } }) { con ->
+            block({ notNull { games.get(con.gameId) } }) { game ->
+                parametrized(acceptHostingCommand) {
+                    if (game.id == id(0)
+                        && game.state == GameState.ChangeHost
+                        && game.hostId == long(1)
+                    ) {
+                        rehosts.get(game.id)?.let { rehost ->
+                            if (rehost.hostId == chatId) {
+                                game.host?.let { prevHost ->
+                                    con.player?.let { newHost ->
+                                        bot.deleteMessage(ChatId.fromId(prevHost.chatId), prevHost.menuMessageId)
+                                        bot.sendMessage(
+                                            ChatId.fromId(prevHost.chatId),
+                                            "Игрок ${newHost.fullName()} стал новым ведущим этой игры"
+                                        )
+                                        accounts.update(prevHost.chatId) {
+                                            state = AccountState.Lobby
+                                        }
+                                        joinGame(game, prevHost, prevHost.chatId, -1L, bot)
+
+                                        connections.delete(con.id)
+                                        val chat = ChatId.fromId(newHost.chatId)
+                                        bot.deleteMessage(chat, newHost.menuMessageId)
+                                        bot.deleteMessage(chat, long(2))
+                                        accounts.update(newHost.chatId) {
+                                            state = AccountState.Host
+                                        }
+                                        games.update(game.id) {
+                                            state = GameState.Connect
+                                            hostId = chatId
+                                        }
+                                        rehosts.delete(game.id)
+                                        bot.sendMessage(
+                                            chat,
+                                            "Вы стали новым ведущим игры",
+                                            replyMarkup = mafiaKeyboard(chatId)
+                                        )
+                                    }
+                                    showLobbyMenu(chatId, -1L, game, bot, true)
+                                }
+                            }
+                        }
+                    }
+                }
+                parametrized(declineHostingCommand) {
+                    if (game.id == id(0)
+                        && game.state == GameState.ChangeHost
+                        && game.hostId == long(1)
+                    ) {
+                        rehosts.get(game.id)?.let { rehost ->
+                            if (rehost.hostId == chatId) {
+                                game.host?.let { prevHost ->
+                                    con.player?.let { newHost ->
+                                        val chat = ChatId.fromId(prevHost.chatId)
+                                        val res = bot.sendMessage(
+                                            chat,
+                                            "Игрок ${newHost.fullName()} отказался вести игру"
+                                        )
+                                        if (res.isSuccess) {
+                                            val msgId = res.get().messageId
+                                            bot.editMessageReplyMarkup(
+                                                chat,
+                                                msgId,
+                                                replyMarkup = inlineKeyboard {
+                                                    button(deleteMsgCommand, msgId)
+                                                }
+                                            )
+                                        }
+                                    }
+                                    bot.deleteMessage(ChatId.fromId(con.playerId), long(2))
+                                    games.update(game.id) {
+                                        state = GameState.Connect
+                                    }
+                                    rehosts.delete(game.id)
+                                    showLobbyMenu(prevHost.chatId, prevHost.menuMessageId, game, bot)
+                                }
+                            }
+                        }
+                    }
+                }
+                parametrized(gameInfoCommand) {
+                    if (game.state == GameState.Game || game.state == GameState.Reveal) {
+                        val mode = modes.get(game.id)?.mode
+                        val roleMap = getRoles(game)
+                        val playerCount = roleMap.map { it.value }.sum()
+                        val players = getPlayerDescs(con)
+                        val desc =
+                            (if (mode != null) "<b>Тип игры</b>: ${mode.type}\n${mode.desc}\n\n" else "") +
+                                    "<b>Количество игроков</b>: $playerCount\n\n${roleDesc(roleMap)}" +
+                                    (if (players.size > 1) "\n\n<b>Игроки в команде</b>:\n" + players.joinToString(
+                                        "\n"
+                                    ) else "")
+                        val res = bot.sendMessage(
+                            ChatId.fromId(chatId),
+                            desc,
+                            parseMode = ParseMode.HTML
+                        )
+                        if (res.isSuccess && checks.get(CheckOption.GAME_MESSAGES)) {
+                            gameMessages.update(game.id) {
+                                list = list + listOf(MessageLink(con.playerId, res.get().messageId))
+                            }
+                        }
+                    }
+                }
+                parametrized(revealRoleCommand) {
+                    if (game.state == GameState.Game || game.state == GameState.Reveal) {
+                        try {
+                            roles.get(id(0))?.let { role ->
+                                val chat = ChatId.fromId(con.playerId)
+                                val res = bot.sendMessage(
+                                    chat,
+                                    getRoleDesc(role),
+                                    parseMode = ParseMode.HTML
+                                )
+                                if (res.isSuccess && checks.get(CheckOption.GAME_MESSAGES)) {
+                                    gameMessages.update(game.id) {
+                                        list = list + listOf(MessageLink(con.playerId, res.get().messageId))
+                                    }
+                                }
+                                bot.editMessageReplyMarkup(
+                                    chat,
+                                    long(1),
+                                    replyMarkup = inlineKeyboard {
+                                        button(gameInfoCommand, game.id)
+                                    }
+                                )
+                                connections.update(con.id) {
+                                    notified = true
+                                }
+                                pendings.save(Pending(ObjectId(), game.hostId, game.id))
+                            }
+                        } catch (e: Exception) {
+                            log.error("Unable to reveal role, game: $game, connection: $con, role: ${id(0)}", e)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

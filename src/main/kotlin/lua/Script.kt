@@ -1,7 +1,9 @@
 package org.example.lua
 
+import org.example.Config
 import org.example.Person
 import org.example.logger
+import org.example.scriptDir
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LoadState
 import org.luaj.vm2.LuaValue
@@ -10,7 +12,10 @@ import org.luaj.vm2.lib.PackageLib
 import org.luaj.vm2.lib.jse.CoerceJavaToLua
 import org.luaj.vm2.lib.jse.CoerceLuaToJava
 import org.luaj.vm2.lib.jse.JseBaseLib
+import java.nio.file.Files.createDirectories
+import java.nio.file.Files.exists
 import java.nio.file.Path
+import java.nio.file.Paths
 
 class Script(name: String, scriptDir: Path) {
     private val lua: Globals = Globals()
@@ -29,8 +34,8 @@ class Script(name: String, scriptDir: Path) {
         callForReturn("action", CoerceJavaToLua.coerce(players.toTypedArray()), util)?.let(func)
     }
 
-    fun passive(result: Result, util: LuaInterface, func: (Return) -> Unit) {
-        callForReturn("passive", CoerceJavaToLua.coerce(result), util)?.let(func)
+    fun passive(action: Action, util: LuaInterface, func: (Return) -> Unit) {
+        callForReturn("passive", CoerceJavaToLua.coerce(action), util)?.let(func)
     }
 
     fun type(players: List<Person>): String {
@@ -61,4 +66,21 @@ class Script(name: String, scriptDir: Path) {
         }
         return lua.get(func).call(arg)
     }
+}
+
+internal fun prepareScripts() {
+    val dir = Path.of(Config().path, "scripts")
+    if (!exists(dir)) {
+        createDirectories(dir)
+    }
+    if (!exists(scriptDir)) {
+        createDirectories(scriptDir)
+    }
+    scriptDir.toFile().listFiles()?.forEach { it.delete() }
+    dir.toFile()
+        .listFiles { file -> file.name.endsWith(".lua") }
+        ?.forEach {
+            val script = it.readText().replace("$", "UTIL:")
+            Paths.get(scriptDir.toFile().absolutePath, it.name).toFile().writeText(script)
+        }
 }
