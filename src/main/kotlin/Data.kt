@@ -40,8 +40,10 @@ data class Game(
     val host: Account? get() = accounts.get(hostId)
     val creator: Account? get() = accounts.get(creatorId)
     val mode: GameMode? get() = modes.get(id)
-    val message: GameMessage? get() = gameMessages.get(id)
     val rehost: Rehost? get() = rehosts.get(id)
+    val messages: List<MessageLink> get() = messageLinks.find(id) { gameId == it }
+    val pairingList: List<Pairing> get() = pairings.find(id) { gameId == it }
+    val connectionList: List<Connection> get() = connections.find(id) { gameId == it}
 
     fun name() = (if (state == GameState.Game) "🎮" else "👥") + (accounts.get(hostId)?.fullName()
         ?: "") + " (" + dateFormat.format(
@@ -328,16 +330,13 @@ data class AdTarget(
     val messages: List<Long>
 )
 
+typealias MessageLinkId = ObjectId
 data class MessageLink(
-    val chatId: Long,
-    val messageId: Long
-)
-
-typealias GameMessageId = ObjectId
-data class GameMessage(
-    val id: GameMessageId,
+    val id: MessageLinkId,
     val gameId: GameId,
-    var list: List<MessageLink>
+    val chatId: Long,
+    val messageId: Long,
+    var type: LinkType = LinkType.NONE
 ) {
     val game: Game? = games.get(gameId)
 }
@@ -357,4 +356,10 @@ typealias NameChangeId = ObjectId
 data class NameChange(
     val id: NameChangeId,
     val chatId: Long
+)
+
+typealias GameUpdateId = ObjectId
+data class GameUpdate(
+    val id: GameUpdateId,
+    val gameId: GameId
 )

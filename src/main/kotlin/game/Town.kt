@@ -31,7 +31,7 @@ data class Town(
             if (alive) {
                 actions.removeIf { res -> res is KillAction && it in res.selection }
             } else {
-                actions.add(KillAction(emptyList(), listOf(it), null))
+                actions.add(KillAction(emptyList(), listOf(it), emptySet()))
             }
         }
     }
@@ -91,7 +91,7 @@ data class Town(
         }
     }
 
-    fun processActions() {
+    /*fun processActions() {
         val blockedActors = mutableSetOf<Int>()
         var actionCount = actions.size
         val grouped = actions.groupBy { it::class }.mapValues { it.value.toMutableList() }.toMutableMap()
@@ -173,42 +173,196 @@ data class Town(
                 continue
             }
         }
+    }*/
+
+    fun processActions() {
+        val grouped = actions.groupBy { it::class }.mapValues { it.value.toMutableList() }
+        var blockers = mutableSetOf<Action>()
+        val blocked = mutableSetOf<Action>()
+        val dependencies = mutableMapOf<Action, MutableSet<Action>>()
+        val dependants = mutableMapOf<Action, MutableSet<Action>>()
+        grouped[CancelAction::class]?.forEach {
+            if (it !is CancelAction) {
+                return@forEach
+            }
+            blockers.add(it)
+            blocked.add(it.canceled)
+            dependencies.getOrPut(it.canceled) { mutableSetOf() }.add(it)
+            dependants[it] = mutableSetOf(it.canceled)
+        }
+
+        grouped[BlockAction::class]?.forEach { action ->
+            blockers.add(action)
+            val select = action.selection.map { it.pos }.toSet()
+            dependants[action] = mutableSetOf()
+            actions.filter { it.actors.toSet().intersect(select).isNotEmpty() }.forEach {
+                blocked.add(it)
+                dependencies.getOrPut(it) { mutableSetOf() }.add(action)
+                dependants[action]!!.add(it)
+            }
+        }
+
+        grouped[HealAction::class]?.forEach { action ->
+            blockers.add(action)
+            val select = action.selection.map { it.pos }.toSet()
+            dependants[action] = mutableSetOf()
+            actions.filter { it is KillAction && it.selection.all { person -> person.pos in select } }.forEach {
+                blocked.add(it)
+                dependencies.getOrPut(it) { mutableSetOf() }.add(action)
+                dependants[action]!!.add(it)
+            }
+        }
+        blockers = blockers.sortedBy { it.createdAt }.toMutableSet()
+
+        // processing actions that do not depend on probable blocked actions
+        fun handleFreeBlocks() {
+            val processed = mutableSetOf<Action>()
+            while (true) {
+                processed.clear()
+
+                blockers.forEach { blocker ->
+                    if (blocker !in blocked && blocker.dependencies.intersect(blocked).isEmpty()) {
+                        processed.add(blocker)
+
+                        dependants[blocker]?.forEach { action ->
+                            dependencies[action]?.remove(blocker)
+                            if (dependencies[action]?.size == 0) {
+                                dependencies.remove(action)
+                                blocked.remove(action)
+                            }
+                        }
+
+                        if (blocker.skippedBy != null || blocker.dependencies.any { it.skippedBy != null }) {
+                            dependants.remove(blocker)
+                            return@forEach
+                        }
+
+                        dependants[blocker]?.forEach { action ->
+                            action.skippedBy = blocker
+                            dependencies.remove(action)
+                            blocked.remove(action)
+                        }
+                        dependants.remove(blocker)
+                    }
+                }
+
+                if (processed.isEmpty()) {
+                    break
+                } else {
+                    blockers.removeAll(processed)
+                }
+            }
+        }
+        handleFreeBlocks()
+
+        /*if (blockers.isNotEmpty()) {
+            // strategy 1: if cancel only depends on block, cancel has priority
+            var success = false
+            blockers.filter { it is CancelAction && it.canceled is BlockAction }.forEach outer@{ action ->
+                val blockedBy: BlockAction = (action as CancelAction).canceled as BlockAction
+                val list = dependencies[action]
+                if ((list?.size?: 0) != 1) {
+                    return@outer
+                }
+                if (list?.first() != blockedBy) {
+                    return@outer
+                }
+                action.dependencies.forEach { dep ->
+                    dependencies[dep]?.forEach {
+                        if (it !is BlockAction) {
+                            return@outer
+                        }
+                        if (blockedBy != it) {
+                            return@outer
+                        }
+                        blockedBy = it
+                    }
+                }
+
+                success = true
+                dependants[blockedBy]?.forEach { dep ->
+                    dependencies[dep]?.remove(blockedBy)
+                    if (dependencies[dep]?.size == 0) {
+                        dependencies.remove(dep)
+                        blocked.remove(dep)
+                    }
+                }
+                dependants.remove(blockedBy)
+            }
+
+            if (success) {
+                handleFreeBlocks()
+            }
+        }*/
+
+        if (blockers.isNotEmpty()) {
+            // strategy 1: block has priority over any other action
+            val processed = blockers.filter { it is BlockAction }.map {
+                dependants[it]?.forEach { dep ->
+                    dep.skippedBy = it
+                    dependencies.remove(dep)
+                    blocked.remove(dep)
+                }
+                dependants.remove(it)
+                it
+            }
+            blockers.removeAll(processed.toSet())
+
+            if (processed.isNotEmpty()) {
+                handleFreeBlocks()
+            }
+        }
+
+        if (blockers.isNotEmpty()) {
+            // strategy 2: cancel has second priority
+            val processed = blockers.filter { it is CancelAction }.map {
+                dependants[it]?.forEach { dep ->
+                    dep.skippedBy = it
+                    dependencies.remove(dep)
+                    blocked.remove(dep)
+                }
+                dependants.remove(it)
+                it
+            }
+            blockers.removeAll(processed.toSet())
+
+            if (processed.isNotEmpty()) {
+                handleFreeBlocks()
+            }
+        }
+
+        if (blockers.isNotEmpty()) {
+            // strategy 3: process everything else in creation order
+            while (blockers.isNotEmpty()) {
+                val current = blockers.first()
+                dependants[current]?.forEach { dep ->
+                    dep.skippedBy = current
+                    dependencies.remove(dep)
+                    blocked.remove(dep)
+                }
+                dependants.remove(current)
+                blockers.remove(current)
+            }
+        }
+
+        grouped[KillAction::class]?.filter { it.skippedBy == null }?.forEach { action ->
+            action.selection.forEach {
+                playerMap[it.pos]?.alive = false
+            }
+        }
+
+        grouped[SilenceAction::class]?.filter { it.skippedBy == null }?.forEach { action ->
+            action.selection.forEach {
+                playerMap[it.pos]?.protected = true
+            }
+        }
     }
 
     fun endNight() {
         try {
             players.forEach { it.protected = false }
 
-            val blocks = actions.filterIsInstance<BlockAction>()
-            for (block in blocks) {
-                val select = block.selection
-                actions.removeIf { res ->
-                    select.map { it.pos }.toSet().intersect(res.actors.toSet()).isNotEmpty()
-                }
-            }
-            val cancels = actions.filterIsInstance<CancelAction>().map { it }
-            for (cancel in cancels) {
-                actions.remove(cancel.canceled)
-            }
-            val heals = actions.filterIsInstance<HealAction>().map { it }
-            for (heal in heals) {
-                val select = heal.selection.filterNotNull()
-                actions.removeIf {
-                    select.intersect(it.selection.toSet()).isNotEmpty() && it is KillAction
-                }
-            }
-            val kills = actions.filterIsInstance<KillAction>()
-            for (it in kills) {
-                it.selection.filterNotNull().forEach {
-                    playerMap[it.pos]?.alive = false
-                }
-            }
-            val mutes = actions.filterIsInstance<SilenceAction>()
-            for (it in mutes) {
-                it.selection.filterNotNull().forEach {
-                    playerMap[it.pos]?.protected = true
-                }
-            }
+            processActions()
         } catch (e: Exception) {
             log.error("Unable to end night, town: $this", e)
         }
@@ -220,8 +374,8 @@ data class Town(
         game: Game
     ) {
         day++
-        val fullLog = fullLog(this)
         endNight()
+        val fullLog = fullLog(this)
         if (fullLog.isNotBlank()) {
             bot.sendMessage(
                 ChatId.fromId(chatId),

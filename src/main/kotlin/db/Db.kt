@@ -45,6 +45,10 @@ class Collection<K: Any, T: Any>(private val name: String, private val driver: D
         return driver.readAll(name).mapNotNull { fromString(it) }.filter(filter)
     }
 
+    fun <P> find(param: P, filter: T.(P) -> Boolean): List<T> {
+        return driver.readAll(name).mapNotNull { fromString(it) }.filter { it.filter(param) }
+    }
+
     fun find(ids: Set<K>): List<T> = ids.mapNotNull { driver.read(key(it)) }.mapNotNull { fromString(it) }
 
     fun save(value: T) = save(keyFun(value), value)

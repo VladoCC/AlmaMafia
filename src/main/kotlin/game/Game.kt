@@ -156,7 +156,7 @@ internal fun deleteGame(game: Game, bot: Bot) {
     connections.deleteMany {
         gameId == game.id
     }
-    gameMessages.get(game.id)?.list?.forEach {
+    game.messages.forEach {
         bot.deleteMessage(ChatId.fromId(it.chatId), it.messageId)
     }
     kicks.deleteMany { gameId == game.id }
@@ -167,7 +167,7 @@ internal fun deleteGame(game: Game, bot: Bot) {
     modes.deleteMany { gameId == game.id }
     roles.deleteMany { gameId == game.id }
     types.deleteMany { gameId == game.id }
-    gameMessages.deleteMany { gameId == game.id }
+    messageLinks.deleteMany { gameId == game.id }
     towns.remove(game.id)
     deleteGameTimers(bot, game.id)
 }
@@ -423,7 +423,7 @@ internal fun executeNightAction(
                                 if (blocker == null) result else Const.Message.actionBlocked,
                                 actors,
                                 res.selection,
-                                null
+                                emptySet()
                             )
                         )
                         start + if (blocker == null) result else Const.Message.actionBlocked
@@ -431,32 +431,39 @@ internal fun executeNightAction(
                         if (res is NoneAction) {
                             return@map null
                         }
-                        town.actions.add(res)
-                        res.selection.forEach {
-                            try {
-                                val pos = it.pos
-                                val lua =
-                                    scripts[town.gameId]?.get(town.playerMap[pos]?.roleData?.name)
-                                lua?.passive(
-                                    res, LuaInterface(
-                                        listOf(pos),
-                                        wake.players,
-                                        town
-                                    )
-                                ) { passive ->
-                                    for (result in passive.actions) {
-                                        if (result !is NoneAction) {
-                                            town.actions.add(result)
+                        val list = mutableListOf(res)
+                        var index = 0
+                        while (index < list.size) {
+                            val action = list[index]
+                            action.selection.forEach {
+                                try {
+                                    val pos = it.pos
+                                    val lua =
+                                        scripts[town.gameId]?.get(town.playerMap[pos]?.roleData?.name)
+                                    lua?.passive(
+                                        action, LuaInterface(
+                                            listOf(pos),
+                                            wake.players,
+                                            town,
+                                            action.dependencies + action
+                                        )
+                                    ) { passive ->
+                                        for (result in passive.actions) {
+                                            if (result !is NoneAction) {
+                                                list.add(result)
+                                            }
                                         }
                                     }
+                                } catch (e: Exception) {
+                                    log.error(
+                                        "Unable to process passive action for person: $it, param: $action",
+                                        e
+                                    )
                                 }
-                            } catch (e: Exception) {
-                                log.error(
-                                    "Unable to process passive action for person: $it, param: $res",
-                                    e
-                                )
                             }
+                            index++
                         }
+                        town.actions.addAll(list)
                         start + Const.Message.actionRegistered
                     }
                     return@map text
@@ -467,10 +474,13 @@ internal fun executeNightAction(
                     messageId,
                     text = if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
                     replyMarkup = inlineKeyboard {
-                        if (town.index >= town.night.size) {
-                            button(dayCommand, messageId)
-                        } else {
-                            button(nextRoleCommand, messageId)
+                        row {
+                            button(cancelActionCommand, messageId)
+                            if (town.index >= town.night.size) {
+                                button(dayCommand, messageId)
+                            } else {
+                                button(nextRoleCommand, messageId)
+                            }
                         }
                     }
                 )
@@ -577,19 +587,28 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
+                val chat = ChatId.fromId(con.playerId)
                 bot.sendMessage(
-                    ChatId.fromId(con.playerId),
+                    chat,
                     "Ведущий начал игру",
                     replyMarkup = mafiaKeyboard(chatId)
                 )
-                bot.sendMessage(
-                    ChatId.fromId(con.playerId),
+                val res = bot.sendMessage(
+                    chat,
                     getRoleDesc(role),
                     parseMode = ParseMode.HTML,
-                    replyMarkup = inlineKeyboard {
-                        button(gameInfoCommand, game.id)
-                    }
                 )
+                if (res.isSuccess) {
+                    val msgId = res.get().messageId
+                    bot.editMessageReplyMarkup(
+                        chat,
+                        msgId,
+                        replyMarkup = inlineKeyboard {
+                            button(gameInfoCommand, role.id, msgId)
+                        }
+                    )
+                    messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
+                }
             } catch (e: Exception) {
                 log.error("Unable to send player info message to $con, role: $role", e)
             }

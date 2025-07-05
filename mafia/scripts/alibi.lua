@@ -19,9 +19,6 @@ function passive(type)
         cancel = $CANCEL($STORED(actionId))
         return $TWO(kill, cancel)
     end
-  if $IS_HEAL(type) then
-      return $HEAL($STORED(selected))
-  end
     return $ALLOW()
 end
 

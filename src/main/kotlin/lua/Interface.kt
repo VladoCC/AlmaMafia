@@ -1,30 +1,29 @@
 package org.example.lua
 
-import com.google.devtools.ksp.processing.Dependencies
 import org.example.Person
 import org.example.game.Town
 
-class LuaInterface(val actors: List<Int>, val selection: List<Person>, val town: Town, val dependency: Action? = null) {
+class LuaInterface(val actors: List<Int>, val selection: List<Person>, val town: Town, val dependencies: Set<Action> = emptySet()) {
     fun NONE() = NoneAction
-    fun INFO(result: String) = Return(InfoAction(result, actors, selection, dependency))
+    fun INFO(result: String) = Return(InfoAction(result, actors, selection, dependencies))
     fun KILL() = KILL(selection)
     fun KILL(select: Person?) = KILL(listOf(select))
-    fun KILL(select: List<Person?>) = Return(KillAction(actors, select.filterNotNull(), dependency))
+    fun KILL(select: List<Person?>) = Return(KillAction(actors, select.filterNotNull(), dependencies))
     fun HEAL() = HEAL(selection)
     fun HEAL(select: Person?) = HEAL(listOf(select))
-    fun HEAL(select: List<Person?>) = Return(HealAction(actors, select.filterNotNull(), dependency))
+    fun HEAL(select: List<Person?>) = Return(HealAction(actors, select.filterNotNull(), dependencies))
     fun BLOCK() = BLOCK(selection)
     fun BLOCK(select: Person?) = BLOCK(listOf(select))
-    fun BLOCK(select: List<Person?>) = Return(BlockAction(actors, select.filterNotNull(), dependency))
+    fun BLOCK(select: List<Person?>) = Return(BlockAction(actors, select.filterNotNull(), dependencies))
     fun SILENCE() = SILENCE(selection)
     fun SILENCE(select: Person?) = SILENCE(listOf(select))
-    fun SILENCE(select: List<Person?>) = Return(SilenceAction(actors, select.filterNotNull(), dependency))
+    fun SILENCE(select: List<Person?>) = Return(SilenceAction(actors, select.filterNotNull(), dependencies))
 
     fun ALLOW() = Return(NoneAction)
-    fun CANCEL(blocked: Action) = Return(CancelAction(blocked, actors, blocked.actors.map { town.playerMap[it] }.filterNotNull(), dependency))
+    fun CANCEL(blocked: Action) = Return(CancelAction(blocked, actors, blocked.actors.map { town.playerMap[it] }.filterNotNull(), dependencies))
     fun CANCEL(blocked: Return) = Return(
         blocked.actions.map {
-            CancelAction(it, actors, it.actors.map { index -> town.playerMap[index] }.filterNotNull(), dependency)
+            CancelAction(it, actors, it.actors.map { index -> town.playerMap[index] }.filterNotNull(), dependencies)
         }
     )
 

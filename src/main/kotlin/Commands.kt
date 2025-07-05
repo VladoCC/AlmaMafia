@@ -52,7 +52,6 @@ val decrCommand = command("➖", "decr", 2)
 
 val resetRolesCommand = command("🚮 Сбросить выбор ролей", "resetRoles", 2)
 val previewCommand = command("🔀 Раздать роли", "preview", 2)
-val updateRolesCommand = command("🔄 Перераздать", "updRoles", 2)
 val gameModeCommand = command("", "mode", 2)
 
 val dayDetailsCommand = command("", "dayDetails", 2)
@@ -63,7 +62,7 @@ val fallCommand = command("", "fall", 2)
 
 val dayBackCommand = command("◀️ Назад", "dayBack", 1)
 
-val settingsCommand = command("📋 Настройки", "settings", 1)
+val settingsCommand = command(/*📋*/"⚙️ Настройки", "settings", 1)
 val timerCommand = command("⏳ Таймер", "timer")
 val nightCommand = command("🌙 Начать ночь", "night", 1)
 
@@ -71,27 +70,22 @@ val selectCommand = command("", "select", 3)
 val executeActionCommand = command("Подтвердить ▶️", "executeAction", 2)
 val nextRoleCommand = command("Следующая роль ▶️", "nextRole", 1)
 val skipRoleCommand = command("Пропустить ⏩", "skipRole", 1)
-
-// todo add this coomand to all night menus
-val cancelActionCommand = command("Отменить последнее действие", "cancelAction", 1)
+val cancelActionCommand = command("◀️ Отменить действие", "cancelAction", 1)
 val dayCommand = command("☀️ Начать день", "day", 1)
 
 val hidePlayersCommand = command("🕶️ Скрыть игроков", "hidePlayers", 1)
 val filterCommand = command("Фильтр: Ошибка", "fltr", 1)
 
-val fallModeCommand = command("0️⃣ Режим фоллов", "fallMode", 2)
-val detailedViewCommand = command("❤️‍🩹 Показ состояния игроков", "detailedMode", 2)
-val doubleColumnNightCommand = command("👥 Два столбца ночью", "columnNight", 2)
-val confirmNightSelectionCommand = command("☑️ Подтверждать действия", "confirmSelection", 2)
-val timerSettingCommand = command("⏳ Таймер", "timerSetting", 2)
-val hidePlayersSettingCommand = command("🕶️ Скрывать игроков днем", "hidePlayersSetting", 2)
+val settingDescCommand = command("-", "settingDesc", 3)
+val hostSettingCommand = command("-", "hostSetting", 3)
 
 val timerDeleteCommand = command("❌️", "timerDelete", 1)
 val timerStateCommand = command("", "timerState", 1)
 val timerResetCommand = command("🔄", "timerReset", 1)
 
-val revealRoleCommand = command("👀 Показать роль", "reveal", 1)
-val gameInfoCommand = command("ℹ️ Информация об игре", "gameInfo", 1)
+val revealRoleCommand = command("👀 Показать роль", "reveal", 2)
+val gameInfoCommand = command("ℹ️ Информация об игре", "gameInfo", 2)
+val aliveInfoCommand = command("👥 Живые игроки", "liveInfo", 3)
 
 val updateCheckCommand = command("", "updateCheck", 2)
 
@@ -99,6 +93,7 @@ val hostRequestCommand = command("Запросы на ведение", "hostRequ
 val hostSettingsCommand = command("Список ведущих", "hostSettings", 1)
 val adminSettingsCommand = command("Список администраторов", "adminSettings", 1)
 val gamesSettingsCommand = command("Список игр", "gamesSettings", 1)
+val hostAdminSettingsCommand = command("Список настроек ведущих", "hostAdminSettings", 1)
 val advertCommand = command("Реклама", "advert", 0)
 
 val timeLimitOnCommand = command("Off", "timeLimitOn", 2)
@@ -111,6 +106,8 @@ val promoteHostCommand = command("🧑‍🧒‍🧒 Сделать админи
 val allowHostCommand = command("✅", "allowHost", 2)
 val denyHostCommand = command("❌", "denyHost", 2)
 val removeAdminCommand = command("❌", "removeAdmin", 2)
+val chooseHostAdminCommand = command("`", "chooseHostAdmin", 2)
+val changeHostAdminSettingCommand = command("`", "changeHostAdminSettings", 3)
 val adminBackCommand = command("Назад", "adminBack", 1)
 
 val confirmPromoteCommand = command("Да", "confirmPromote", 3)
@@ -143,9 +140,16 @@ val menuCommand = command("/menu")
 val changeNameCommand = command("/changename")
 val editSettingsCommand = command("/settings")
 
-val startGameCommand = command("Запустить игру")
-val restartGameCommand = command("Перезапустить игру")
-val stopGameCommand = command("Завершить игру")
-val leaveGameCommand = command("Покинуть игру")
+val startGameCommand = command("🎮 Запустить игру")
+val restartGameCommand = command("🔙 Перезапустить игру")
+val stopGameCommand = command("🚪 Завершить игру")
+val leaveGameCommand = command("🚪 Покинуть игру")
 
-val adminPanelCommand = command("Меню администратора")
+val adminPanelCommand = command("⚛️ Меню администратора")
+
+val startGameLegacyCommand = command("Запустить игру")
+val restartGameLegacyCommand = command("Перезапустить игру")
+val stopGameLegacyCommand = command("Завершить игру")
+val leaveGameLegacyCommand = command("Покинуть игру")
+
+val adminPanelLegacyCommand = command("Меню администратора")

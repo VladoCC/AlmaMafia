@@ -26,11 +26,7 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 import kotlin.reflect.KClass
 
-// todo add undo to night actions
-// todo show 'enter name' message to queries if user has no account
-// todo redo whole player game menu to work using arrow buttons and stay in one message
 // todo keep 'leave game' button under game message, remove footer
-// todo show how many players are alive to all living players
 // todo add ability to rehost game while it is in progress
 // todo improve naming in hosts alive player count message
 // todo add win rate stat for player
@@ -54,6 +50,7 @@ const val roleDescLen = 280
 val numbers = arrayOf("0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣")
 val notKnowingTeams = arrayOf("none", "city")
 val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
+val inGameStates = setOf(GameState.Type, GameState.Reveal, GameState.Game)
 
 val resetAccount: Account.() -> Unit = {
     state = AccountState.Menu
@@ -76,7 +73,7 @@ fun main() {
         token = Config().botToken
         dispatch {
             text {
-                handle(message.text ?: "") by MafiaHandler.textHandler
+                handle(message.text?.trim() ?: "") by MafiaHandler.textHandler
             }
 
             callbackQuery {
@@ -467,6 +464,7 @@ fun showAdmin(
             button(hostSettingsCommand, messageId)
             button(adminSettingsCommand, messageId)
             button(gamesSettingsCommand, messageId)
+            button(hostAdminSettingsCommand, messageId)
             button(advertCommand)
             button(deleteMsgCommand, messageId)
         }
@@ -561,7 +559,7 @@ fun shortLog(town: Town): String {
     return if (town.actions.isNotEmpty()) {
         val set = mutableSetOf<Pair<KClass<out Event>, Int>>()
         val text =
-            town.actions.asSequence().filter { !it.blocked }.map { it.events() }.flatten().sortedBy { it.pos }.map {
+            town.actions.asSequence().filter { it.skippedBy == null }.map { it.events() }.flatten().sortedBy { it.pos }.map {
                 val pair = it::class to it.pos
                 if (pair !in set) {
                     set.add(pair)
@@ -578,8 +576,13 @@ fun shortLog(town: Town): String {
 
 fun fullLog(town: Town): String {
     return if (town.actions.isNotEmpty()) {
-        val text = town.actions.mapIndexed { i, it ->
-            val action = actionDesc(it)
+        val text = town.actions.filter {
+            (it.skippedBy == null || !it.skippedBy!!.master)
+                    && it.dependencies.all {
+                        it.skippedBy == null || !it.skippedBy!!.master
+                    }
+        }.mapIndexed { i, it ->
+            val action = it.desc()
 
             val alive = it.actors.mapNotNull { town.playerMap[it] }.filter { it.alive }
             val who = if (alive.isNotEmpty()) {
@@ -588,19 +591,39 @@ fun fullLog(town: Town): String {
                 "Действующее лицо не указно"
             }
             val target = it.selection.joinToString { desc(it, " - ") }
-            "Событие ${i + 1}.\n" +
+            val skipper = it.skippedBy?.let {
+                if (it.master)
+                    "Ведущий"
+                else
+                    it.actors
+                        .mapNotNull { town.playerMap[it] }
+                        .filter { it.alive }
+                        .maxByOrNull { it.roleData.priority }
+                        ?.roleData?.displayName
+                        ?: "Действующее лицо не указано"
+            }
+            val dep = it.dependencies.lastOrNull()?.let {
+                it.desc() + "(" +
+                        it.actors
+                            .mapNotNull { town.playerMap[it] }
+                            .filter { it.alive }
+                            .maxByOrNull { it.roleData.priority }
+                            ?.roleData?.displayName +
+                        ")"
+            }
+            "Событие ${i + 1}." + (if (it.skippedBy != null) " (ОТМЕНЕНО)" else "") + "\n" +
                     "Кто: $who\n" +
                     "Действие: $action\n" +
                     "Цель: $target\n" +
-                    (if (it is InfoAction) "Результат: ${it.text}" else "")
+                    (if (it is InfoAction) "Результат: ${it.text}" else "") +
+                    (if (dep != null) "Реакция на: $dep" else "") +
+                    (if (skipper != null) "Отменено ролью: $skipper" else "")
         }.joinToString("\n\n")
         text
     } else {
         ""
     }
 }
-
-private fun actionDesc(it: Action): String = it.desc()
 
 //private fun desc(player: Person, sep: String = ". ") = "${player.pos}$sep${player.name} (${player.role.name})"
 
@@ -686,18 +709,9 @@ fun showRoles(
             button(blankCommand named "♣️: ${gameSetups.filter { it.role?.defaultTeam != "city" }.sumOf { it.count }}")
         }
         button(resetRolesCommand, game.id, messageId)
-        if (pairs.isNotEmpty()) {
-            row {
-                button(updateRolesCommand, game.id, messageId)
-            }
-        }
         row {
             button(menuLobbyCommand, messageId)
-            if (pairs.isNotEmpty()) {
-                button(menuPreviewCommand, messageId)
-            } else {
-                button(previewCommand, game.id, messageId)
-            }
+            button(previewCommand, game.id, messageId)
         }
     }
     bot.editMessageReplyMarkup(
@@ -736,7 +750,7 @@ fun showPreview(
         row {
             button(blankCommand named "Распределено ролей: ${pairs.size}")
         }
-        button(updateRolesCommand, game.id, messageId)
+        button(previewCommand named "🔄 Перераздать", game.id, messageId)
         row {
             button(menuRolesCommand named "◀️ Меню ролей", messageId)
             button(gameCommand, game.id, messageId)
@@ -759,10 +773,10 @@ fun menuButtons(
     messageId: Long
 ): InlineKeyboardMarkup {
     return inlineKeyboard {
-        games.find { state != GameState.Game && actual }.forEach {
+        games.find { actual }.forEach {
             accounts.get(it.hostId)?.let { host ->
                 row {
-                    button(joinCommand named host.fullName(), it.id, messageId)
+                    button(joinCommand named (if (it.state in inGameStates) "🎮" else "👥") + host.fullName(), it.id, messageId)
                 }
             }
         }
