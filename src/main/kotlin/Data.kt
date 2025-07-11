@@ -14,8 +14,7 @@ data class Account(
     var name: String = "",
     var state: AccountState = AccountState.Init,
     var menuMessageId: Long = -1L,
-    var connectionId: ConnectionId? = null,
-    var revealRolesMode: Boolean = true
+    var connectionId: ConnectionId? = null
 ) {
     fun fullName() = name + if (userName.isNotBlank()) " (@$userName)" else ""
 

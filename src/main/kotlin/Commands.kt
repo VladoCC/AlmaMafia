@@ -34,6 +34,8 @@ val acceptHostingCommand = command("Да", "acceptHosting", 3)
 val declineHostingCommand = command("Нет", "declineHosting", 3)
 
 val menuLobbyCommand = command("◀️ Меню игроков", "menuLobby", 1)
+val enableRevealRolesModeCommand = command("🐵 Показать роли", "enableRevealRolesMode", paramCount = 1)
+val disableRevealRolesModeCommand = command("🙈 Скрыть роли", "disableRevealRolesMode", paramCount = 1)
 val menuRolesCommand = command("Меню ролей ▶️", "menuRoles", 1)
 val menuPreviewCommand = command("Меню распределения ▶️", "menuPreview", 1)
 val gameCommand = command("Начать игру 🎮", "game", 2)
@@ -51,7 +53,6 @@ val incrCommand = command("➕", "incr", 2)
 val decrCommand = command("➖", "decr", 2)
 
 val resetRolesCommand = command("🚮 Сбросить выбор ролей", "resetRoles", 2)
-val toggleRevealRolesModeCommand = command("✅", "toggleRevealRolesMode", 2)
 val previewCommand = command("🔀 Раздать роли", "preview", 2)
 val gameModeCommand = command("", "mode", 2)
 

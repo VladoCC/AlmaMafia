@@ -709,14 +709,7 @@ fun showRoles(
             button(blankCommand named "♣️: ${gameSetups.filter { it.role?.defaultTeam != "city" }.sumOf { it.count }}")
         }
         button(resetRolesCommand, game.id, messageId)
-        row {
-            button(blankCommand named "👁 Показ ролей")
-            button(
-                toggleRevealRolesModeCommand named if (accounts.get(chatId)!!.revealRolesMode) "✅" else "❌",
-                chatId, messageId
-            )
-        }
-        row {
+            row {
             button(menuLobbyCommand, messageId)
             button(previewCommand, game.id, messageId)
         }
@@ -732,7 +725,8 @@ fun showPreview(
     bot: Bot,
     chatId: Long,
     messageId: Long,
-    game: Game
+    game: Game,
+    revealRolesMode: Boolean = false
 ) {
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
@@ -749,12 +743,12 @@ fun showPreview(
                 )
                 button(detailsCommand named it.name(), it.id, messageId)
                 button(blankCommand named (pair?.roleId?.let { id ->
-                    if (accounts.get(chatId)!!.revealRolesMode) {
+                    if (revealRolesMode) {
                         roles.get(id)?.displayName
                     } else {
-                        "✅ Роль выдана"
+                        "👌 Роль выдана"
                     }
-                } ?: "Роль не выдана"))
+                } ?: "❗ Роль не выдана"))
             }
         }
         row {
@@ -763,6 +757,13 @@ fun showPreview(
         row {
             button(blankCommand named "Распределено ролей: ${pairs.size}")
         }
+        button(
+            if (revealRolesMode)
+                disableRevealRolesModeCommand
+            else
+                enableRevealRolesModeCommand,
+            messageId
+        )
         button(previewCommand named "🔄 Перераздать", game.id, messageId)
         row {
             button(menuRolesCommand named "◀️ Меню ролей", messageId)
