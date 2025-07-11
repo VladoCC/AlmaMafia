@@ -1065,6 +1065,12 @@ object MafiaHandler {
                 }
                 showRoles(chatId, long(1), bot, game)
             }
+            parametrized(toggleRevealRolesModeCommand) {
+                accounts.update(chatId, {
+                    revealRolesMode = !revealRolesMode
+                })
+                showRoles(chatId, long(1), bot, game)
+            }
             parametrized(previewCommand) {
                 modes.deleteMany { gameId == game.id }
                 deleteGameTimers(bot, game.id)

@@ -710,6 +710,13 @@ fun showRoles(
         }
         button(resetRolesCommand, game.id, messageId)
         row {
+            button(blankCommand named "👁 Показ ролей")
+            button(
+                toggleRevealRolesModeCommand named if (accounts.get(chatId)!!.revealRolesMode) "✅" else "❌",
+                chatId, messageId
+            )
+        }
+        row {
             button(menuLobbyCommand, messageId)
             button(previewCommand, game.id, messageId)
         }
@@ -741,7 +748,13 @@ fun showPreview(
                     messageId
                 )
                 button(detailsCommand named it.name(), it.id, messageId)
-                button(blankCommand named (pair?.roleId?.let { id -> roles.get(id)?.displayName } ?: "Роль не выдана"))
+                button(blankCommand named (pair?.roleId?.let { id ->
+                    if (accounts.get(chatId)!!.revealRolesMode) {
+                        roles.get(id)?.displayName
+                    } else {
+                        "✅ Роль выдана"
+                    }
+                } ?: "Роль не выдана"))
             }
         }
         row {

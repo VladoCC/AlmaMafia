@@ -3,6 +3,7 @@ package org.example.db
 import com.google.common.cache.CacheBuilder
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
+import org.example.Account
 import java.io.File
 import java.nio.file.Files.*
 import java.nio.file.Paths
@@ -61,11 +62,20 @@ class Collection<K: Any, T: Any>(private val name: String, private val driver: D
 
     private fun key(id: K) = "$name/$id"
 
-    private fun fromString(str: String) = try {
-        gson.fromJson(str, type.java)
-    } catch (e: JsonSyntaxException) {
-        e.printStackTrace()
-        null
+    private fun fromString(str: String): T? {
+        var parsedObject = try {
+            gson.fromJson(str, type.java)
+        } catch (e: JsonSyntaxException) {
+            e.printStackTrace()
+            null
+        }
+        // У уже созданных аккаунтов по умолчанию должно быть true, а gson делает false
+        if (parsedObject is Account) {
+            if (str.indexOf("revealRolesMode") == -1) {
+                parsedObject.revealRolesMode = true
+            }
+        }
+        return parsedObject
     }
 }
 
