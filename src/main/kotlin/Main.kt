@@ -709,7 +709,7 @@ fun showRoles(
             button(blankCommand named "♣️: ${gameSetups.filter { it.role?.defaultTeam != "city" }.sumOf { it.count }}")
         }
         button(resetRolesCommand, game.id, messageId)
-            row {
+        row {
             button(menuLobbyCommand, messageId)
             button(previewCommand, game.id, messageId)
         }
