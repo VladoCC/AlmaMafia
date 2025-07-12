@@ -730,6 +730,7 @@ fun showPreview(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
     val keyboard = inlineKeyboard {
+        val revealRolesMode = hostInfos.get(chatId)!!.revealRolesMode
         players.sortedBy { it.pos }.forEach {
             val pair = pairs[it.id]
             row {
@@ -742,7 +743,7 @@ fun showPreview(
                 )
                 button(detailsCommand named it.name(), it.id, messageId)
                 button(blankCommand named (pair?.roleId?.let { id ->
-                    if (game.revealRolesMode) {
+                    if (revealRolesMode) {
                         roles.get(id)?.displayName
                     } else {
                         "👌 Роль выдана"
@@ -758,11 +759,11 @@ fun showPreview(
         }
         button(
             toggleRevealRolesModeCommand named
-                    if (game.revealRolesMode) "🙈 Скрыть роли" else "🐵 Показать роли",
+                    if (revealRolesMode) "🙈 Скрывать роли" else "🐵 Показывать роли",
             game.id,
             messageId
         )
-        button(previewCommand named "🔄 Перераздать", game.id, messageId)
+        button(previewCommand named "🔄 Перераздать", chatId, messageId)
         row {
             button(menuRolesCommand named "◀️ Меню ролей", messageId)
             button(gameCommand, game.id, messageId)
@@ -838,10 +839,6 @@ fun lobby(messageId: Long, game: Game): InlineKeyboardMarkup {
         //row { button(resetNumsCommand, messageId) }
         if (game.creator?.hostInfo?.canShare == true) {
             button(changeHostCommand, messageId)
-        }
-        row {
-            button(blankCommand named "👁 Предпросмотр ролей при раздаче")
-            button(toggleRevealRolesModeCommand named if (game.revealRolesMode) "✅" else "❌", game.id, messageId)
         }
         button(menuRolesCommand, messageId)
     }

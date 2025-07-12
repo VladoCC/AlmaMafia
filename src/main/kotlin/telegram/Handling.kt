@@ -929,13 +929,10 @@ object MafiaHandler {
                 showLobbyMenu(chatId, long(0), game, bot)
             }
             parametrized(toggleRevealRolesModeCommand) {
-                game.revealRolesMode = !game.revealRolesMode
-                games.save(game)
-                if (game.state == GameState.Connect) {
-                    showLobbyMenu(bot = bot, chatId = chatId, messageId = messageId!!, game = game)
-                } else if (game.state == GameState.Preview) {
-                    showPreview(bot = bot, chatId = chatId, messageId = messageId!!, game = game)
+                hostInfos.update(chatId) {
+                    revealRolesMode = !revealRolesMode
                 }
+                showPreview(bot, chatId, messageId!!, game)
             }
             parametrized(menuRolesCommand) {
                 games.update(game.id) {
