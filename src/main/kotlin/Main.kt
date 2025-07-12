@@ -730,7 +730,7 @@ fun showPreview(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
     val keyboard = inlineKeyboard {
-        val revealRolesMode = hostInfos.get(chatId)!!.revealRolesMode
+        val revealRolesMode = hostSettings.get(chatId)!!.revealRolesMode
         players.sortedBy { it.pos }.forEach {
             val pair = pairs[it.id]
             row {

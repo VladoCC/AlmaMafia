@@ -929,7 +929,7 @@ object MafiaHandler {
                 showLobbyMenu(chatId, long(0), game, bot)
             }
             parametrized(toggleRevealRolesModeCommand) {
-                hostInfos.update(chatId) {
+                hostSettings.update(chatId) {
                     revealRolesMode = !revealRolesMode
                 }
                 showPreview(bot, chatId, messageId!!, game)

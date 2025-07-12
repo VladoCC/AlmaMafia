@@ -190,6 +190,7 @@ data class HostSettings(
     var timer: Boolean = false,
     var hideDayPlayers: Boolean = false,
     var playersHidden: Boolean = false,
+    var revealRolesMode: Boolean = true
 ) {
     val host: Account? get() = accounts.get(hostId)
 }
@@ -259,8 +260,7 @@ data class HostInfo(
     var until: Date = Date(),
     var gameLimit: Boolean = false,
     var left: Int = -1,
-    var canShare: Boolean = true,
-    var revealRolesMode: Boolean = true
+    var canShare: Boolean = true
 ) {
     val account: Account? get() = accounts.get(chatId)
 }
