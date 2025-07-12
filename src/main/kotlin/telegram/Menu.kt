@@ -404,6 +404,7 @@ internal fun showDayMenu(
                     msgId
                 )
             }
+            val hideRolesMode = hostSettings.get(chatId)!!.hideRolesMode
             if (settings?.playersHidden != true) {
                 row { button(filterCommand named "Фильтр: ${view.desc}", msgId) }
                 for (player in town.players.sortedBy { it.pos }) {
@@ -411,7 +412,8 @@ internal fun showDayMenu(
                         row {
                             button(
                                 (if (settings?.detailedView == true) blankCommand else dayDetailsCommand) named desc(
-                                    player
+                                    player,
+                                    hideRolesMode = hideRolesMode
                                 ),
                                 player.pos,
                                 msgId
@@ -425,6 +427,12 @@ internal fun showDayMenu(
                     }
                 }
             }
+            button(
+                toggleHideRolesModeCommand named
+                        if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
+                game.id,
+                messageId
+            )
             button(settingsCommand, msgId)
             if (settings?.timer == true) {
                 button(timerCommand)

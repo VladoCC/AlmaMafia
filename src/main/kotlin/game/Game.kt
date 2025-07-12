@@ -308,11 +308,12 @@ internal fun joinGame(
     }
 }
 
-internal fun desc(player: Person?, sep: String = ". ", icons: Boolean = true) = if (player != null)
+internal fun desc(player: Person?, sep: String = ". ", icons: Boolean = true, hideRolesMode: Boolean = false) = if (player != null)
     "${player.pos}$sep" +
             (if (!icons) "" else if (player.protected) "⛑️" else if (player.alive) "" else "☠️") +
             (if (!icons) "" else if (player.fallCount > 0) numbers[player.fallCount % numbers.size] else "") +
-            " ${player.name} (${player.roleData.displayName})"
+            " ${player.name} " +
+            if (hideRolesMode) "" else "(${player.roleData.displayName})"
 else "Неизвестный игрок"
 
 internal fun nightRoleDesc(wake: Wake): String {

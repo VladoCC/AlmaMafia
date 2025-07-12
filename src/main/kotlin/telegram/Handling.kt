@@ -1,6 +1,5 @@
 package org.example.telegram
 
-import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
@@ -928,6 +927,18 @@ object MafiaHandler {
                     state = GameState.Connect
                 }
                 showLobbyMenu(chatId, long(0), game, bot)
+            }
+            parametrized(toggleHideRolesModeCommand) {
+                hostSettings.update(chatId) {
+                    hideRolesMode = !hideRolesMode
+                }
+                showPreview(bot, chatId, messageId!!, game)
+                val state = game.state
+                if (state == GameState.Preview) {
+                    showPreview(bot, chatId, messageId!!, game)
+                } else if (state == GameState.Game) {
+                    showDayMenu(towns[game.id]!!, chatId, messageId, bot, game)
+                }
             }
             parametrized(menuRolesCommand) {
                 games.update(game.id) {
