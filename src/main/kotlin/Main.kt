@@ -730,7 +730,7 @@ fun showPreview(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
     val keyboard = inlineKeyboard {
-        val revealRolesMode = hostSettings.get(chatId)!!.revealRolesMode
+        val hideRolesMode = hostSettings.get(chatId)!!.hideRolesMode
         players.sortedBy { it.pos }.forEach {
             val pair = pairs[it.id]
             row {
@@ -743,10 +743,10 @@ fun showPreview(
                 )
                 button(detailsCommand named it.name(), it.id, messageId)
                 button(blankCommand named (pair?.roleId?.let { id ->
-                    if (revealRolesMode) {
-                        roles.get(id)?.displayName
-                    } else {
+                    if (hideRolesMode) {
                         "👌 Роль выдана"
+                    } else {
+                        roles.get(id)?.displayName
                     }
                 } ?: "❗ Роль не выдана"))
             }
@@ -758,8 +758,8 @@ fun showPreview(
             button(blankCommand named "Распределено ролей: ${pairs.size}")
         }
         button(
-            toggleRevealRolesModeCommand named
-                    if (revealRolesMode) "🙈 Скрывать роли" else "🐵 Показывать роли",
+            toggleHideRolesModeCommand named
+                    if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
             game.id,
             messageId
         )
