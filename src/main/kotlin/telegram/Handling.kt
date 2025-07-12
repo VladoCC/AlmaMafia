@@ -1,6 +1,5 @@
 package org.example.telegram
 
-import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
@@ -929,6 +928,15 @@ object MafiaHandler {
                 }
                 showLobbyMenu(chatId, long(0), game, bot)
             }
+            parametrized(toggleRevealRolesModeCommand) {
+                game.revealRolesMode = !game.revealRolesMode
+                games.save(game)
+                if (game.state == GameState.Connect) {
+                    showLobbyMenu(bot = bot, chatId = chatId, messageId = messageId!!, game = game)
+                } else if (game.state == GameState.Preview) {
+                    showPreview(bot = bot, chatId = chatId, messageId = messageId!!, game = game)
+                }
+            }
             parametrized(menuRolesCommand) {
                 games.update(game.id) {
                     state = GameState.Roles
@@ -1064,12 +1072,6 @@ object MafiaHandler {
                     count = 0
                 }
                 showRoles(chatId, long(1), bot, game)
-            }
-            parametrized(enableRevealRolesModeCommand) {
-                showPreview(bot, chatId, long(0), game, true)
-            }
-            parametrized(disableRevealRolesModeCommand) {
-                showPreview(bot, chatId, long(0), game, false)
             }
             parametrized(previewCommand) {
                 modes.deleteMany { gameId == game.id }

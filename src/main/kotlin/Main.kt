@@ -725,8 +725,7 @@ fun showPreview(
     bot: Bot,
     chatId: Long,
     messageId: Long,
-    game: Game,
-    revealRolesMode: Boolean = false
+    game: Game
 ) {
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
@@ -743,7 +742,7 @@ fun showPreview(
                 )
                 button(detailsCommand named it.name(), it.id, messageId)
                 button(blankCommand named (pair?.roleId?.let { id ->
-                    if (revealRolesMode) {
+                    if (game.revealRolesMode) {
                         roles.get(id)?.displayName
                     } else {
                         "👌 Роль выдана"
@@ -758,10 +757,9 @@ fun showPreview(
             button(blankCommand named "Распределено ролей: ${pairs.size}")
         }
         button(
-            if (revealRolesMode)
-                disableRevealRolesModeCommand
-            else
-                enableRevealRolesModeCommand,
+            toggleRevealRolesModeCommand named
+                    if (game.revealRolesMode) "🙈 Скрыть роли" else "🐵 Показать роли",
+            game.id,
             messageId
         )
         button(previewCommand named "🔄 Перераздать", game.id, messageId)
@@ -840,6 +838,10 @@ fun lobby(messageId: Long, game: Game): InlineKeyboardMarkup {
         //row { button(resetNumsCommand, messageId) }
         if (game.creator?.hostInfo?.canShare == true) {
             button(changeHostCommand, messageId)
+        }
+        row {
+            button(blankCommand named "👁 Предпросмотр ролей при раздаче")
+            button(toggleRevealRolesModeCommand named if (game.revealRolesMode) "✅" else "❌", game.id, messageId)
         }
         button(menuRolesCommand, messageId)
     }
