@@ -75,14 +75,6 @@ enum class HostOptions(val shortName: String, val fullName: String, val current:
         {
             hideDayPlayers = !hideDayPlayers
         }
-    ),
-    revealRolesAtPreview(
-        "👁 Предпросмотр ролей при раздаче",
-        "Показывать, у кого какая роль в меню предпросмотра",
-        { revealRolesMode },
-        {
-            revealRolesMode = !revealRolesMode
-        }
     )
 }
 
