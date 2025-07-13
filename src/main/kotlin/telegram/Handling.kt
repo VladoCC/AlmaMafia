@@ -932,11 +932,15 @@ object MafiaHandler {
                 hostSettings.update(chatId) {
                     hideRolesMode = !hideRolesMode
                 }
-                val state = game.state
-                if (state == GameState.Preview) {
-                    showPreview(bot, chatId, messageId!!, game)
-                } else if (state == GameState.Game) {
-                    showDayMenu(towns[game.id]!!, chatId, messageId!!, bot, game)
+                if (messageId != null) {
+                    val state = game.state
+                    if (state == GameState.Preview) {
+                        showPreview(bot, chatId, messageId, game)
+                    } else if (state == GameState.Game) {
+                        showDayMenu(towns[game.id]!!, chatId, messageId, bot, game)
+                    } else if (state == GameState.Reveal) {
+                        showRevealMenu(game, bot, chatId, messageId)
+                    }
                 }
             }
             parametrized(menuRolesCommand) {

@@ -158,6 +158,7 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
             button(blankCommand named "Статус игроков")
             val cons = pairings.find { gameId == game.id }.sortedBy { it.connection?.pos ?: -1 }
             val notified = cons.count { it.connection?.notified ?: false }
+            val hideRolesMode = hostSettings.get(chatId)!!.hideRolesMode
             reordered(cons).chunked(2).forEach { list ->
                 val leftCon = list[0].connection
                 val rightCon = if (list.size < 2) null else list[1].connection
@@ -179,15 +180,22 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
                     conRow(leftCon)
                     conRow(rightCon)
                 }
-                row {
-                    val leftName = list[0].role?.displayName
-                    button(if (leftName != null) blankCommand named leftName else blankCommand)
-                    val rightName = if (list.size < 2) null else list[1].role?.displayName
-                    button(if (rightName != null) blankCommand named rightName else blankCommand)
+                if (!hideRolesMode) {
+                    row {
+                        val leftName = list[0].role?.displayName
+                        button(if (leftName != null) blankCommand named leftName else blankCommand)
+                        val rightName = if (list.size < 2) null else list[1].role?.displayName
+                        button(if (rightName != null) blankCommand named rightName else blankCommand)
+                    }
                 }
             }
 
             button(blankCommand named "Ознакомлены: $notified / ${cons.size}")
+            button(
+                toggleHideRolesModeCommand named
+                        if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
+                messageId
+            )
             button(proceedCommand, messageId)
         }
     )
@@ -430,7 +438,6 @@ internal fun showDayMenu(
             button(
                 toggleHideRolesModeCommand named
                         if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
-                game.id,
                 messageId
             )
             button(settingsCommand, msgId)

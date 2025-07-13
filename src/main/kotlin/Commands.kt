@@ -34,7 +34,7 @@ val acceptHostingCommand = command("Да", "acceptHosting", 3)
 val declineHostingCommand = command("Нет", "declineHosting", 3)
 
 val menuLobbyCommand = command("◀️ Меню игроков", "menuLobby", 1)
-val toggleHideRolesModeCommand = command("🙈 Скрывать роли", "toggleHideRolesMode", 2)
+val toggleHideRolesModeCommand = command("🙈 Скрывать роли", "toggleHideRolesMode", 1)
 val menuRolesCommand = command("Меню ролей ▶️", "menuRoles", 1)
 val menuPreviewCommand = command("Меню распределения ▶️", "menuPreview", 1)
 val gameCommand = command("Начать игру 🎮", "game", 2)

@@ -760,7 +760,6 @@ fun showPreview(
         button(
             toggleHideRolesModeCommand named
                     if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
-            game.id,
             messageId
         )
         button(previewCommand named "🔄 Перераздать", chatId, messageId)
