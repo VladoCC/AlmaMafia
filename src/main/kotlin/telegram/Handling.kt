@@ -1376,12 +1376,6 @@ object MafiaHandler {
                     town.selections.clear()
                     showNightRoleMenu(town, chatId, bot, long(0))
                 }
-                parametrized(toggleHideRolesModeNightCommand) {
-                    hostSettings.update(chatId, {
-                        hideRolesMode = !hideRolesMode
-                    })
-                    showNightRoleMenu(towns.get(game.id)!!, chatId, bot, messageId!!)
-                }
                 parametrized(skipRoleCommand) {
                     skipNightRole(town, chatId, long(0), bot)
                 }

@@ -322,21 +322,19 @@ internal fun showNightRoleMenu(
                 val players = town.players.filter { it.alive }.sortedBy { it.pos }
                 val actor = wake.actor()
                 val settings = accounts.get(chatId)?.settings
-                fun KeyboardContext.RowContext.selectButton(it: Person, hideRolesMode: Boolean = false) {
+                fun KeyboardContext.RowContext.selectButton(it: Person) {
                     button(
-                        selectCommand named ((if (it.pos in town.selections) "✅ " else "") +
-                                desc(it, hideRolesMode = hideRolesMode)),
+                        selectCommand named ((if (it.pos in town.selections) "✅ " else "") + desc(it)),
                         it.pos,
                         msgId,
                         actor?.roleData?.id ?: ""
                     )
                 }
-                val hideRolesMode = hostSettings.get(chatId)!!.hideRolesMode
                 if (settings == null || settings.doubleColumnNight) {
                     reordered(players).chunked(2).forEach { list ->
                         row {
                             list.forEach {
-                                selectButton(it, hideRolesMode)
+                                selectButton(it)
                             }
                             if (list.size == 1) {
                                 button(blankCommand)
@@ -346,17 +344,10 @@ internal fun showNightRoleMenu(
                 } else {
                     players.forEach {
                         row {
-                            selectButton(it, hideRolesMode)
+                            selectButton(it)
                         }
                     }
                 }
-                button(
-                    toggleHideRolesModeNightCommand named
-                            if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
-
-                    messageId
-                )
-
                 row {
                     if (town.actions.isNotEmpty()) {
                         button(cancelActionCommand, msgId)
