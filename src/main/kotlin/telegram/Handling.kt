@@ -928,20 +928,11 @@ object MafiaHandler {
                 }
                 showLobbyMenu(chatId, long(0), game, bot)
             }
-            parametrized(toggleHideRolesModeCommand) {
+            parametrized(toggleHideRolesModePreviewCommand) {
                 hostSettings.update(chatId) {
                     hideRolesMode = !hideRolesMode
                 }
-                if (messageId != null) {
-                    val state = game.state
-                    if (state == GameState.Preview) {
-                        showPreview(bot, chatId, messageId, game)
-                    } else if (state == GameState.Game) {
-                        showDayMenu(towns[game.id]!!, chatId, messageId, bot, game)
-                    } else if (state == GameState.Reveal) {
-                        showRevealMenu(game, bot, chatId, messageId)
-                    }
-                }
+                showPreview(bot, chatId, messageId!!, game)
             }
             parametrized(menuRolesCommand) {
                 games.update(game.id) {
@@ -1192,6 +1183,18 @@ object MafiaHandler {
                     showSettingsMenu(it, chatId, -1L, long(0), bot)
                 }
             }
+            parametrized(startRevealingRolesCommand) {
+                games.update(game.id) {
+                    overrideHideRolesMode = true
+                }
+                showDayMenu(
+                    towns[game.id]!!,
+                    chatId,
+                    messageId!!,
+                    bot,
+                    games.get(game.id)!!
+                )
+            }
             parametrized(nightCommand) {
                 try {
                     bot.deleteMessage(ChatId.fromId(chatId), long(0))
@@ -1282,6 +1285,7 @@ object MafiaHandler {
                     }
 
                     games.update(game.id) {
+                        overrideHideRolesMode = false
                         state = GameState.Connect
                     }
                     pendings.deleteMany { host == chatId }

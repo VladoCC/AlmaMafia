@@ -317,7 +317,10 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
             messageId,
             replyMarkup = inlineKeyboard {
                 button(blankCommand named "Детали")
-                button(dayDetailsCommand named desc(player), playerPos, messageId)
+                button(dayDetailsCommand named desc(
+                    player,
+                    hideRolesMode = shouldHideRoles(games.get(town.gameId)!!, chatId)
+                ), playerPos, messageId)
                 row {
                     playerDayDesc(player, messageId, fallMode)
                 }
@@ -326,6 +329,14 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
         )
         return@let
     }
+}
+
+fun getHideRolesMode(game: Game, chatId: Long): Boolean {
+    return ((game.host ?: accounts.get(chatId)!!).settings ?: hostSettings.get(chatId)!!).hideRolesMode
+}
+
+fun shouldHideRoles(game: Game, chatId: Long): Boolean {
+    return if (game.overrideHideRolesMode) false else getHideRolesMode(game, chatId)
 }
 
 fun deleteTimer(
@@ -730,7 +741,7 @@ fun showPreview(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
     val keyboard = inlineKeyboard {
-        val hideRolesMode = hostSettings.get(chatId)!!.hideRolesMode
+        val hideRolesMode = getHideRolesMode(game, chatId)
         players.sortedBy { it.pos }.forEach {
             val pair = pairs[it.id]
             row {
@@ -758,8 +769,8 @@ fun showPreview(
             button(blankCommand named "Распределено ролей: ${pairs.size}")
         }
         button(
-            toggleHideRolesModeCommand named
-                    if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
+            toggleHideRolesModePreviewCommand named
+                    if (hideRolesMode) "😐 Показывать роли" else "😑 Скрывать роли",
             messageId
         )
         button(previewCommand named "🔄 Перераздать", chatId, messageId)

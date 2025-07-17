@@ -158,7 +158,6 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
             button(blankCommand named "Статус игроков")
             val cons = pairings.find { gameId == game.id }.sortedBy { it.connection?.pos ?: -1 }
             val notified = cons.count { it.connection?.notified ?: false }
-            val hideRolesMode = hostSettings.get(chatId)!!.hideRolesMode
             reordered(cons).chunked(2).forEach { list ->
                 val leftCon = list[0].connection
                 val rightCon = if (list.size < 2) null else list[1].connection
@@ -180,7 +179,7 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
                     conRow(leftCon)
                     conRow(rightCon)
                 }
-                if (!hideRolesMode) {
+                if (!getHideRolesMode(game, chatId)) {
                     row {
                         val leftName = list[0].role?.displayName
                         button(if (leftName != null) blankCommand named leftName else blankCommand)
@@ -191,11 +190,6 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
             }
 
             button(blankCommand named "Ознакомлены: $notified / ${cons.size}")
-            button(
-                toggleHideRolesModeCommand named
-                        if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
-                messageId
-            )
             button(proceedCommand, messageId)
         }
     )
@@ -412,7 +406,7 @@ internal fun showDayMenu(
                     msgId
                 )
             }
-            val hideRolesMode = hostSettings.get(chatId)!!.hideRolesMode
+            val hideRolesMode = shouldHideRoles(game, chatId)
             if (settings?.playersHidden != true) {
                 row { button(filterCommand named "Фильтр: ${view.desc}", msgId) }
                 for (player in town.players.sortedBy { it.pos }) {
@@ -435,16 +429,15 @@ internal fun showDayMenu(
                     }
                 }
             }
-            button(
-                toggleHideRolesModeCommand named
-                        if (hideRolesMode) "🐵 Показывать роли" else "🙈 Скрывать роли",
-                messageId
-            )
             button(settingsCommand, msgId)
             if (settings?.timer == true) {
                 button(timerCommand)
             }
-            button(nightCommand, msgId)
+            if (hideRolesMode) {
+                button(startRevealingRolesCommand, msgId)
+            } else {
+                button(nightCommand, msgId)
+            }
         }
         bot.editMessageReplyMarkup(
             ChatId.fromId(chatId),
