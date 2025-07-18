@@ -42,6 +42,7 @@ const val gameDurationLimitHours = 6
 const val gameHistoryTtlHours = 24
 const val sendPendingAfterSec = 3
 const val deleteNumUpdateMsgAfterSec = 30
+const val deleteAskToDisableHidingMsgAfterSec = 15
 const val timerTtlMin = 60L
 const val timerMaxTimeMin = 5L
 const val timerInactiveTimeMin = 2L
@@ -319,7 +320,7 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
                 button(blankCommand named "Детали")
                 button(dayDetailsCommand named desc(
                     player,
-                    hideRolesMode = shouldHideRoles(games.get(town.gameId)!!, chatId)
+                    hideRolesMode = getHideRolesMode(town.gameId)
                 ), playerPos, messageId)
                 row {
                     playerDayDesc(player, messageId, fallMode)
@@ -331,12 +332,14 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
     }
 }
 
-fun getHideRolesMode(game: Game, chatId: Long): Boolean {
-    return ((game.host ?: accounts.get(chatId)!!).settings ?: hostSettings.get(chatId)!!).hideRolesMode
+fun getHideRolesMode(game: Game?): Boolean {
+    return game?.let { game ->
+        game.host?.settings?.hideRolesMode
+    } ?: false
 }
 
-fun shouldHideRoles(game: Game, chatId: Long): Boolean {
-    return if (game.overrideHideRolesMode) false else getHideRolesMode(game, chatId)
+fun getHideRolesMode(gameId: GameId): Boolean {
+    return getHideRolesMode(games.get(gameId))
 }
 
 fun deleteTimer(
@@ -741,7 +744,7 @@ fun showPreview(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
     val keyboard = inlineKeyboard {
-        val hideRolesMode = getHideRolesMode(game, chatId)
+        val hideRolesMode = getHideRolesMode(game)
         players.sortedBy { it.pos }.forEach {
             val pair = pairs[it.id]
             row {
@@ -770,7 +773,7 @@ fun showPreview(
         }
         button(
             toggleHideRolesModePreviewCommand named
-                    if (hideRolesMode) "😐 Показывать роли" else "😑 Скрывать роли",
+                    if (hideRolesMode) "👓 Показывать роли" else toggleHideRolesModePreviewCommand.name,
             messageId
         )
         button(previewCommand named "🔄 Перераздать", chatId, messageId)

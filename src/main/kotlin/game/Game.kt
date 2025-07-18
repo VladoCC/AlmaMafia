@@ -312,8 +312,8 @@ internal fun desc(player: Person?, sep: String = ". ", icons: Boolean = true, hi
     "${player.pos}$sep" +
             (if (!icons) "" else if (player.protected) "⛑️" else if (player.alive) "" else "☠️") +
             (if (!icons) "" else if (player.fallCount > 0) numbers[player.fallCount % numbers.size] else "") +
-            " ${player.name} " +
-            if (hideRolesMode) "" else "(${player.roleData.displayName})"
+            " ${player.name}" +
+            if (hideRolesMode) "" else " (${player.roleData.displayName})"
 else "Неизвестный игрок"
 
 internal fun nightRoleDesc(wake: Wake): String {

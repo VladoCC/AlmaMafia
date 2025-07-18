@@ -929,10 +929,8 @@ object MafiaHandler {
                 showLobbyMenu(chatId, long(0), game, bot)
             }
             parametrized(toggleHideRolesModePreviewCommand) {
-                hostSettings.update(chatId) {
-                    hideRolesMode = !hideRolesMode
-                }
-                showPreview(bot, chatId, messageId!!, game)
+                hostSettings.update(chatId, HostOptions.HideRolesMode.update)
+                showPreview(bot, chatId, long(0), game)
             }
             parametrized(menuRolesCommand) {
                 games.update(game.id) {
@@ -1183,36 +1181,41 @@ object MafiaHandler {
                     showSettingsMenu(it, chatId, -1L, long(0), bot)
                 }
             }
-            parametrized(startRevealingRolesCommand) {
-                games.update(game.id) {
-                    overrideHideRolesMode = true
-                }
-                showDayMenu(
-                    towns[game.id]!!,
-                    chatId,
-                    messageId!!,
-                    bot,
-                    games.get(game.id)!!
-                )
-            }
             parametrized(nightCommand) {
-                try {
-                    bot.deleteMessage(ChatId.fromId(chatId), long(0))
-                    accounts.update(chatId) {
-                        menuMessageId = -1L
-                    }
-                    deleteGameTimers(bot, game.id)
-                    towns[game.id]?.let { town ->
-                        bot.sendMessage(
+                towns.get(game.id)?.let { town ->
+                    if (town.day == 1 && getHideRolesMode(game)) {
+                        val res = bot.sendMessage(
                             ChatId.fromId(chatId),
-                            "Результат дня:\n${shortLog(town).ifBlank { "Не произошло никаких событий" }}"
+                            "Выключите скрытие ролей в меню настроек"
                         )
-                        town.updateTeams()
-                        town.prepNight()
-                        showNightRoleMenu(town, chatId, bot, -1L)
+                        if (res.isSuccess) {
+                            bombs.save(
+                                TimedMessage(
+                                    ObjectId(),
+                                    chatId,
+                                    res.get().messageId,
+                                    Date(System.currentTimeMillis() + deleteAskToDisableHidingMsgAfterSec * 1000)
+                                )
+                            )
+                        }
+                    } else {
+                        try {
+                            bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                            accounts.update(chatId) {
+                                menuMessageId = -1L
+                            }
+                            deleteGameTimers(bot, game.id)
+                            bot.sendMessage(
+                                ChatId.fromId(chatId),
+                                "Результат дня:\n${shortLog(town).ifBlank { "Не произошло никаких событий" }}"
+                            )
+                            town.updateTeams()
+                            town.prepNight()
+                            showNightRoleMenu(town, chatId, bot, -1L)
+                        } catch (e: Exception) {
+                            log.error("Unable to start night, game: $game", e)
+                        }
                     }
-                } catch (e: Exception) {
-                    log.error("Unable to start night, game: $game", e)
                 }
             }
             parametrized(timerCommand) {
@@ -1285,7 +1288,6 @@ object MafiaHandler {
                     }
 
                     games.update(game.id) {
-                        overrideHideRolesMode = false
                         state = GameState.Connect
                     }
                     pendings.deleteMany { host == chatId }

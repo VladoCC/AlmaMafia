@@ -35,8 +35,7 @@ data class Game(
     val createdAt: Date = Date(),
     var playedAt: Date? = null,
     val creatorId: Long = hostId,
-    var actual: Boolean = true,
-    var overrideHideRolesMode: Boolean = false
+    var actual: Boolean = true
 ) {
     val host: Account? get() = accounts.get(hostId)
     val creator: Account? get() = accounts.get(creatorId)

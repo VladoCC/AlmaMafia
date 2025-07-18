@@ -179,7 +179,7 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
                     conRow(leftCon)
                     conRow(rightCon)
                 }
-                if (!getHideRolesMode(game, chatId)) {
+                if (!getHideRolesMode(game)) {
                     row {
                         val leftName = list[0].role?.displayName
                         button(if (leftName != null) blankCommand named leftName else blankCommand)
@@ -406,7 +406,6 @@ internal fun showDayMenu(
                     msgId
                 )
             }
-            val hideRolesMode = shouldHideRoles(game, chatId)
             if (settings?.playersHidden != true) {
                 row { button(filterCommand named "Фильтр: ${view.desc}", msgId) }
                 for (player in town.players.sortedBy { it.pos }) {
@@ -415,7 +414,7 @@ internal fun showDayMenu(
                             button(
                                 (if (settings?.detailedView == true) blankCommand else dayDetailsCommand) named desc(
                                     player,
-                                    hideRolesMode = hideRolesMode
+                                    hideRolesMode = getHideRolesMode(game)
                                 ),
                                 player.pos,
                                 msgId
@@ -433,11 +432,7 @@ internal fun showDayMenu(
             if (settings?.timer == true) {
                 button(timerCommand)
             }
-            if (hideRolesMode) {
-                button(startRevealingRolesCommand, msgId)
-            } else {
-                button(nightCommand, msgId)
-            }
+            button(nightCommand, msgId)
         }
         bot.editMessageReplyMarkup(
             ChatId.fromId(chatId),
