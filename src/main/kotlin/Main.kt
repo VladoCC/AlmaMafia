@@ -42,7 +42,6 @@ const val gameDurationLimitHours = 6
 const val gameHistoryTtlHours = 24
 const val sendPendingAfterSec = 3
 const val deleteNumUpdateMsgAfterSec = 30
-const val deleteAskToDisableHidingMsgAfterSec = 15
 const val timerTtlMin = 60L
 const val timerMaxTimeMin = 5L
 const val timerInactiveTimeMin = 2L
