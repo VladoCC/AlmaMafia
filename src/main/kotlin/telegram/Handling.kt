@@ -1183,38 +1183,21 @@ object MafiaHandler {
             }
             parametrized(nightCommand) {
                 towns.get(game.id)?.let { town ->
-                    if (town.day == 1 && getHideRolesMode(game)) {
-                        val res = bot.sendMessage(
+                    try {
+                        bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                        accounts.update(chatId) {
+                            menuMessageId = -1L
+                        }
+                        deleteGameTimers(bot, game.id)
+                        bot.sendMessage(
                             ChatId.fromId(chatId),
-                            "Выключите скрытие ролей в меню настроек"
+                            "Результат дня:\n${shortLog(town).ifBlank { "Не произошло никаких событий" }}"
                         )
-                        if (res.isSuccess) {
-                            bombs.save(
-                                TimedMessage(
-                                    ObjectId(),
-                                    chatId,
-                                    res.get().messageId,
-                                    Date(System.currentTimeMillis() + deleteAskToDisableHidingMsgAfterSec * 1000)
-                                )
-                            )
-                        }
-                    } else {
-                        try {
-                            bot.deleteMessage(ChatId.fromId(chatId), long(0))
-                            accounts.update(chatId) {
-                                menuMessageId = -1L
-                            }
-                            deleteGameTimers(bot, game.id)
-                            bot.sendMessage(
-                                ChatId.fromId(chatId),
-                                "Результат дня:\n${shortLog(town).ifBlank { "Не произошло никаких событий" }}"
-                            )
-                            town.updateTeams()
-                            town.prepNight()
-                            showNightRoleMenu(town, chatId, bot, -1L)
-                        } catch (e: Exception) {
-                            log.error("Unable to start night, game: $game", e)
-                        }
+                        town.updateTeams()
+                        town.prepNight()
+                        showNightRoleMenu(town, chatId, bot, -1L)
+                    } catch (e: Exception) {
+                        log.error("Unable to start night, game: $game", e)
                     }
                 }
             }

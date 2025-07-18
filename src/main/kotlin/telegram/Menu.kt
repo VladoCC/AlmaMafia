@@ -406,6 +406,7 @@ internal fun showDayMenu(
                     msgId
                 )
             }
+            val hideRolesMode = getHideRolesMode(game)
             if (settings?.playersHidden != true) {
                 row { button(filterCommand named "Фильтр: ${view.desc}", msgId) }
                 for (player in town.players.sortedBy { it.pos }) {
@@ -414,7 +415,7 @@ internal fun showDayMenu(
                             button(
                                 (if (settings?.detailedView == true) blankCommand else dayDetailsCommand) named desc(
                                     player,
-                                    hideRolesMode = getHideRolesMode(game)
+                                    hideRolesMode = hideRolesMode
                                 ),
                                 player.pos,
                                 msgId
@@ -432,7 +433,9 @@ internal fun showDayMenu(
             if (settings?.timer == true) {
                 button(timerCommand)
             }
-            button(nightCommand, msgId)
+            if (hideRolesMode) {
+                button(nightCommand, msgId)
+            }
         }
         bot.editMessageReplyMarkup(
             ChatId.fromId(chatId),

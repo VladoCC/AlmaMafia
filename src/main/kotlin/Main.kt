@@ -320,7 +320,7 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
                 button(blankCommand named "Детали")
                 button(dayDetailsCommand named desc(
                     player,
-                    hideRolesMode = getHideRolesMode(town.gameId)
+                    hideRolesMode = getHideRolesMode(games.get(town.gameId))
                 ), playerPos, messageId)
                 row {
                     playerDayDesc(player, messageId, fallMode)
@@ -336,10 +336,6 @@ fun getHideRolesMode(game: Game?): Boolean {
     return game?.let { game ->
         game.host?.settings?.hideRolesMode
     } ?: false
-}
-
-fun getHideRolesMode(gameId: GameId): Boolean {
-    return getHideRolesMode(games.get(gameId))
 }
 
 fun deleteTimer(
@@ -773,7 +769,7 @@ fun showPreview(
         }
         button(
             toggleHideRolesModePreviewCommand named
-                    if (hideRolesMode) "👓 Показывать роли" else toggleHideRolesModePreviewCommand.name,
+                    if (hideRolesMode) "👓 Показывать роли" else "🕶️ Скрывать роли",
             messageId
         )
         button(previewCommand named "🔄 Перераздать", chatId, messageId)
