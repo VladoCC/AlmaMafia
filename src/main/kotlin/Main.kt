@@ -317,7 +317,10 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
             messageId,
             replyMarkup = inlineKeyboard {
                 button(blankCommand named "Детали")
-                button(dayDetailsCommand named desc(player), playerPos, messageId)
+                button(dayDetailsCommand named desc(
+                    player,
+                    hideRolesMode = getHideRolesMode(games.get(town.gameId))
+                ), playerPos, messageId)
                 row {
                     playerDayDesc(player, messageId, fallMode)
                 }
@@ -326,6 +329,12 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
         )
         return@let
     }
+}
+
+fun getHideRolesMode(game: Game?): Boolean {
+    return game?.let { game ->
+        game.host?.settings?.hideRolesMode
+    } ?: false
 }
 
 fun deleteTimer(
@@ -730,6 +739,7 @@ fun showPreview(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
     val keyboard = inlineKeyboard {
+        val hideRolesMode = getHideRolesMode(game)
         players.sortedBy { it.pos }.forEach {
             val pair = pairs[it.id]
             row {
@@ -741,7 +751,13 @@ fun showPreview(
                     messageId
                 )
                 button(detailsCommand named it.name(), it.id, messageId)
-                button(blankCommand named (pair?.roleId?.let { id -> roles.get(id)?.displayName } ?: "Роль не выдана"))
+                button(blankCommand named (pair?.roleId?.let { id ->
+                    if (hideRolesMode) {
+                        "👌 Роль выдана"
+                    } else {
+                        roles.get(id)?.displayName
+                    }
+                } ?: "❗ Роль не выдана"))
             }
         }
         row {
@@ -750,7 +766,12 @@ fun showPreview(
         row {
             button(blankCommand named "Распределено ролей: ${pairs.size}")
         }
-        button(previewCommand named "🔄 Перераздать", game.id, messageId)
+        button(
+            toggleHideRolesModePreviewCommand named
+                    if (hideRolesMode) "👓 Показывать роли" else "🕶️ Скрывать роли",
+            messageId
+        )
+        button(previewCommand named "🔄 Перераздать", chatId, messageId)
         row {
             button(menuRolesCommand named "◀️ Меню ролей", messageId)
             button(gameCommand, game.id, messageId)

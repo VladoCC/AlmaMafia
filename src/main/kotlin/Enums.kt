@@ -75,6 +75,14 @@ enum class HostOptions(val shortName: String, val fullName: String, val current:
         {
             hideDayPlayers = !hideDayPlayers
         }
+    ),
+    HideRolesMode(
+        "🕶 Скрывать роли",
+        "Не показывать роли игроков перед началом игры и в меню дня",
+        { hideRolesMode },
+        {
+            hideRolesMode = !hideRolesMode
+        }
     )
 }
 

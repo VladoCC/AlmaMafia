@@ -190,6 +190,7 @@ data class HostSettings(
     var timer: Boolean = false,
     var hideDayPlayers: Boolean = false,
     var playersHidden: Boolean = false,
+    var hideRolesMode: Boolean = false
 ) {
     val host: Account? get() = accounts.get(hostId)
 }

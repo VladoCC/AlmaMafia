@@ -1,6 +1,5 @@
 package org.example.telegram
 
-import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
@@ -929,6 +928,10 @@ object MafiaHandler {
                 }
                 showLobbyMenu(chatId, long(0), game, bot)
             }
+            parametrized(toggleHideRolesModePreviewCommand) {
+                hostSettings.update(chatId, HostOptions.HideRolesMode.update)
+                showPreview(bot, chatId, long(0), game)
+            }
             parametrized(menuRolesCommand) {
                 games.update(game.id) {
                     state = GameState.Roles
@@ -1179,13 +1182,13 @@ object MafiaHandler {
                 }
             }
             parametrized(nightCommand) {
-                try {
-                    bot.deleteMessage(ChatId.fromId(chatId), long(0))
-                    accounts.update(chatId) {
-                        menuMessageId = -1L
-                    }
-                    deleteGameTimers(bot, game.id)
-                    towns[game.id]?.let { town ->
+                towns.get(game.id)?.let { town ->
+                    try {
+                        bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                        accounts.update(chatId) {
+                            menuMessageId = -1L
+                        }
+                        deleteGameTimers(bot, game.id)
                         bot.sendMessage(
                             ChatId.fromId(chatId),
                             "Результат дня:\n${shortLog(town).ifBlank { "Не произошло никаких событий" }}"
@@ -1193,9 +1196,9 @@ object MafiaHandler {
                         town.updateTeams()
                         town.prepNight()
                         showNightRoleMenu(town, chatId, bot, -1L)
+                    } catch (e: Exception) {
+                        log.error("Unable to start night, game: $game", e)
                     }
-                } catch (e: Exception) {
-                    log.error("Unable to start night, game: $game", e)
                 }
             }
             parametrized(timerCommand) {
