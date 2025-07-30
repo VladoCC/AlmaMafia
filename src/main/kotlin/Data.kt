@@ -41,6 +41,7 @@ data class Game(
     val creator: Account? get() = accounts.get(creatorId)
     val mode: GameMode? get() = modes.get(id)
     val rehost: Rehost? get() = rehosts.get(id)
+    val reassignment: Reassignment? get() = reassignments.get(id)
     val messages: List<MessageLink> get() = messageLinks.find(id) { gameId == it }
     val pairingList: List<Pairing> get() = pairings.find(id) { gameId == it }
     val connectionList: List<Connection> get() = connections.find(id) { gameId == it}
@@ -122,7 +123,7 @@ data class Pairing(
     @BsonId val id: PairingId,
     val gameId: GameId,
     val connectionId: ConnectionId,
-    val roleId: RoleId
+    var roleId: RoleId
 ) {
     val game: Game? get() = games.get(gameId)
     val connection: Connection? get() = connections.get(connectionId)
@@ -260,7 +261,8 @@ data class HostInfo(
     var until: Date = Date(),
     var gameLimit: Boolean = false,
     var left: Int = -1,
-    var canShare: Boolean = true
+    var canShare: Boolean = true,
+    var canReassign: Boolean = false
 ) {
     val account: Account? get() = accounts.get(chatId)
 }
@@ -364,3 +366,11 @@ data class GameUpdate(
     val id: GameUpdateId,
     val gameId: GameId
 )
+
+data class Reassignment(
+    val gameId: GameId,
+    val connectionId: ConnectionId,
+) {
+    val game: Game? get() = games.get(gameId)
+    val connection: Connection? get() = connections.get(connectionId)
+}

@@ -433,7 +433,7 @@ internal fun showDayMenu(
             if (settings?.timer == true) {
                 button(timerCommand)
             }
-            if (hideRolesMode) {
+            if (!hideRolesMode) {
                 button(nightCommand, msgId)
             }
         }

@@ -1,5 +1,6 @@
 package org.example.telegram
 
+import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
@@ -707,6 +708,12 @@ object MafiaHandler {
                     showHostSettings(long(1), chatId, bot)
                 }
             }
+            parametrized(canReassignCommand) {
+                hostInfos.get(long(0))?.let {
+                    hostInfos.update(long(0)) { canReassign = !it.canReassign }
+                    showHostSettings(long(1), chatId, bot)
+                }
+            }
             parametrized(deleteHostCommand) {
                 hostInfos.delete(long(0))
                 showHostSettings(long(1), chatId, bot)
@@ -948,6 +955,7 @@ object MafiaHandler {
                 games.update(game.id) {
                     state = GameState.Preview
                 }
+                reassignments.delete(game.id)
                 showPreview(bot, chatId, long(0), game)
             }
             parametrized(gameCommand) {
@@ -986,7 +994,7 @@ object MafiaHandler {
                     pairings.find { gameId == game.id }
                         .associate { connections.get(it.connectionId) to roles.get(it.roleId) }
                 val errorCons = cons.filter { !pairs.containsKey(it) }
-                if (errors.isNotEmpty()) {
+                if (errorCons.isNotEmpty()) {
                     sendClosable("Невозможно начать игру:\n" + errorCons.joinToString("\n") { "Не указана роль для игрока ${it.name()}" })
                     return@parametrized
                 }
@@ -1108,6 +1116,124 @@ object MafiaHandler {
                     }
                 }
                 showPreview(bot, chatId, long(1), game)
+            }
+
+            parametrized(reassignRoleCommand) {
+                reassignments.save(
+                    Reassignment(
+                        game.id,
+                        id(1)
+                    )
+                )
+                val gameSetups = setups.find { gameId == game.id }.associate { it.roleId to it.count }.toMutableMap()
+                game.pairingList.forEach { pair ->
+                    if (gameSetups.containsKey(pair.roleId)) {
+                        gameSetups[pair.roleId] = gameSetups[pair.roleId]!! - 1
+                    }
+                }
+                val roleOptions = gameSetups.filter { it.value > 0 }
+                    .mapNotNull { roles.get(it.key) }
+                    .sortedBy { it.index }
+                showReassignMenu(roleOptions, bot, chatId, long(0), id(1), reassignAnyCommand)
+            }
+
+            parametrized(reassignAnyCommand) {
+                reassignments.save(
+                    Reassignment(
+                        game.id,
+                        id(1)
+                    )
+                )
+                val roleOptions = roles.find { gameId == game.id }
+                showReassignMenu(roleOptions, bot, chatId, long(0), id(1), reassignRoleCommand)
+            }
+
+            parametrized(swapPairsCommand) {
+                val res = bot.editMessageReplyMarkup(
+                    ChatId.fromId(chatId),
+                    long(0),
+                    replyMarkup = inlineKeyboard {
+                        row {
+                            button(blankCommand named "Доступные игроки")
+                        }
+                        pairings.find { gameId == game.id && connectionId != game.reassignment?.connectionId }
+                            .sortedBy { it.connectionId }.forEach { pair ->
+                                row {
+                                    button(
+                                        swapConfirmCommand named
+                                                (pair.connection?.name() ?: "Неизвестный игрок"),
+                                        long(0), pair.id
+                                    )
+                                    button(
+                                        swapConfirmCommand named
+                                                (pair.role?.displayName ?: "Роль не указана"),
+                                        long(0), pair.id
+                                    )
+                                }
+                            }
+                        button(menuPreviewCommand named "Назад", long(0))
+                    }
+                )
+            }
+
+            parametrized(swapConfirmCommand) {
+                game.reassignment?.let { reassignment ->
+                    pairings.get(id(1))?.let { pair ->
+                        val role = pairings.find { connectionId == reassignment.connectionId }.firstOrNull()?.roleId
+                        pairings.deleteMany { connectionId == reassignment.connectionId }
+                        if (role == null) {
+                            pairings.delete(pair.id)
+                        } else {
+                            pairings.update(id(1)) {
+                                roleId = role
+                            }
+                        }
+                        pairings.save(
+                            Pairing(
+                                ObjectId(),
+                                game.id,
+                                reassignment.connectionId,
+                                pair.roleId
+                            )
+                        )
+                    }
+                }
+                reassignments.delete(game.id)
+                showPreview(bot, chatId, long(0), game)
+            }
+
+            parametrized(reassignConfirmCommand) {
+                reassignments.get(game.id)?.let { reassignment ->
+                    pairings.deleteMany { connectionId == reassignment.connectionId }
+                    pairings.save(
+                        Pairing(
+                            ObjectId(),
+                            game.id,
+                            reassignment.connectionId,
+                            id(1)
+                        )
+                    )
+                }
+                reassignments.delete(game.id)
+                showPreview(
+                    bot,
+                    chatId,
+                    long(0),
+                    game
+                )
+            }
+
+            parametrized(deletePairCommand) {
+                reassignments.get(game.id)?.let { reassignment ->
+                    pairings.deleteMany { connectionId == reassignment.connectionId }
+                }
+                reassignments.delete(game.id)
+                showPreview(
+                    bot,
+                    chatId,
+                    long(0),
+                    game
+                )
             }
 
             parametrized(gameModeCommand) {
@@ -1408,11 +1534,26 @@ object MafiaHandler {
                         }
                     }
                     parametrized(hostSettingCommand) {
-                        updateSettingsView(chatId, long(0), long(1), game, town, bot, HostOptions.valueOf(str(2)).update)
+                        updateSettingsView(
+                            chatId,
+                            long(0),
+                            long(1),
+                            game,
+                            town,
+                            bot,
+                            HostOptions.valueOf(str(2)).update
+                        )
                     }
                     parametrized(settingDescCommand) {
                         hostSettings.get(chatId)?.let { settings ->
-                            showSettingsMenu(settings, chatId, long(0), long(1), bot, HostOptions.valueOf(str(2)).fullName)
+                            showSettingsMenu(
+                                settings,
+                                chatId,
+                                long(0),
+                                long(1),
+                                bot,
+                                HostOptions.valueOf(str(2)).fullName
+                            )
                         }
                     }
                 }
@@ -1630,4 +1771,44 @@ object MafiaHandler {
             }
         }
     }
+}
+
+private fun showReassignMenu(
+    roleOptions: List<Role>, bot: Bot, chatId: Long, messageId: Long,
+    connectionId: ConnectionId, menuCommand: Command
+) {
+    val res = bot.editMessageReplyMarkup(
+        ChatId.fromId(chatId),
+        messageId,
+        replyMarkup = inlineKeyboard {
+            button(
+                blankCommand named
+                        (if (roleOptions.isNotEmpty()) "Новая роль" else "Все роли распределены")
+            )
+            roleOptions.sortedBy { it.index }.chunked(2).forEach { pair ->
+                row {
+                    val first = pair[0]
+                    button(
+                        reassignConfirmCommand named first.displayName,
+                        messageId,
+                        first.id
+                    )
+                    if (pair.size > 1) {
+                        val second = pair[1]
+                        button(
+                            reassignConfirmCommand named second.displayName,
+                            messageId,
+                            second.id
+                        )
+                    } else {
+                        button(blankCommand)
+                    }
+                }
+            }
+            button(deletePairCommand, messageId)
+            button(swapPairsCommand, messageId)
+            button(menuCommand, messageId, connectionId)
+            button(menuPreviewCommand named "Назад", messageId)
+        }
+    )
 }

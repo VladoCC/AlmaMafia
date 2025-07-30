@@ -33,7 +33,6 @@ import kotlin.reflect.KClass
 // todo rework town, make it savable
 // todo make lazy, but updating on data change getters for loading related object from db by their id (generate getters with annotations?)
 // todo replace objectid and get rid of mongo dependencies
-// todo add "playing host" mode
 // todo optimize db by using better serialization formats and maybe create some mongoshell-like util for hand processing data (kotlin-script?)
 // todo add capabilities for graceful shutdown for bot (make sure to delete temp folder before finishing)
 // todo refactor EVERYTHING
@@ -413,6 +412,10 @@ fun showHostSettings(
                         button(blankCommand named "👥 Передавать ведение")
                         button(shareCommand named if (it.canShare) "On" else "Off", it.chatId, messageId)
                     }
+                    row {
+                        button(blankCommand named "👇 Выбирать роли")
+                        button(canReassignCommand named if (it.canReassign) "On" else "Off", it.chatId, messageId)
+                    }
                     if (admins.get(it.chatId) == null) {
                         button(promoteHostCommand, it.chatId, messageId)
                     } else {
@@ -751,13 +754,18 @@ fun showPreview(
                     messageId
                 )
                 button(detailsCommand named it.name(), it.id, messageId)
-                button(blankCommand named (pair?.roleId?.let { id ->
+                val roleName = pair?.roleId?.let { id ->
                     if (hideRolesMode) {
                         "👌 Роль выдана"
                     } else {
                         roles.get(id)?.displayName
                     }
-                } ?: "❗ Роль не выдана"))
+                } ?: "❗ Роль не выдана"
+                if (game.host?.hostInfo?.canReassign == true) {
+                    button(reassignRoleCommand named roleName, messageId, it.id)
+                } else {
+                    button(blankCommand named roleName)
+                }
             }
         }
         row {
