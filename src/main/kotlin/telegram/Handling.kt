@@ -677,41 +677,42 @@ object MafiaHandler {
                 showHostSettings(long(0), chatId, bot)
             }
             parametrized(adminSettingsCommand) {
-                val messageId = long(0)
-                showAdminListMenu(chatId, messageId, bot)
+                showAdminListMenu(chatId, long(0), bot)
             }
             parametrized(timeLimitOnCommand) {
                 val res = bot.sendMessage(ChatId.fromId(chatId), "Введите срок действия разрешения в днях:")
                 if (res.isSuccess) {
                     val desc = res.get().messageId
                     createAdminContext(desc, AdminState.HOST_TIME)
+                    bot.deleteMessage(ChatId.fromId(chatId), long(1))
                 }
             }
             parametrized(timeLimitOffCommand) {
                 hostInfos.update(long(0)) { timeLimit = false }
-                showHostSettings(long(1), chatId, bot)
+                showChosenHostSettingsMenu(chatId, long(1), bot, long(0))
             }
             parametrized(gameLimitOnCommand) {
                 val res = bot.sendMessage(ChatId.fromId(chatId), "Введите количество разрешенных игр:")
                 if (res.isSuccess) {
                     val desc = res.get().messageId
                     createAdminContext(desc, AdminState.HOST_GAMES)
+                    bot.deleteMessage(ChatId.fromId(chatId), long(1))
                 }
             }
             parametrized(gameLimitOffCommand) {
                 hostInfos.update(long(0)) { gameLimit = false }
-                showHostSettings(long(1), chatId, bot)
+                showChosenHostSettingsMenu(chatId, long(1), bot, long(0))
             }
             parametrized(shareCommand) {
                 hostInfos.get(long(0))?.let {
                     hostInfos.update(long(0)) { canShare = !it.canShare }
-                    showHostSettings(long(1), chatId, bot)
+                    showChosenHostSettingsMenu(chatId, long(1), bot, long(0))
                 }
             }
             parametrized(canReassignCommand) {
                 hostInfos.get(long(0))?.let {
                     hostInfos.update(long(0)) { canReassign = !it.canReassign }
-                    showHostSettings(long(1), chatId, bot)
+                    showChosenHostSettingsMenu(chatId, long(1), bot, long(0))
                 }
             }
             parametrized(deleteHostCommand) {
@@ -738,9 +739,10 @@ object MafiaHandler {
                 }
             }
             parametrized(confirmPromoteCommand) {
+                bot.deleteMessage(ChatId.fromId(chatId), long(1))
                 bot.deleteMessage(ChatId.fromId(chatId), long(2))
                 admins.save(UserId(ObjectId(), long(0)))
-                showHostSettings(long(1), chatId, bot)
+                showChosenHostSettingsMenu(chatId, -1L, bot, long(0))
             }
             parametrized(allowHostCommand) {
                 hostInfos.save(HostInfo(ObjectId(), long(0)))
@@ -768,6 +770,9 @@ object MafiaHandler {
             parametrized(changeHostAdminSettingCommand) {
                 hostSettings.update(long(1)) { HostOptions.valueOf(str(2)).update(this) }
                 showChosenSettingsMenu(chatId, long(0), bot, long(1))
+            }
+            parametrized(chooseHostSettingsCommand) {
+                showChosenHostSettingsMenu(chatId, long(0), bot, long(1))
             }
             parametrized(adminBackCommand) {
                 showAdmin(chatId, long(0), bot)

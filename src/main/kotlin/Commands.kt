@@ -116,6 +116,7 @@ val allowHostCommand = command("✅", "allowHost", 2)
 val denyHostCommand = command("❌", "denyHost", 2)
 val removeAdminCommand = command("❌", "removeAdmin", 2)
 val chooseHostAdminCommand = command("`", "chooseHostAdmin", 2)
+val chooseHostSettingsCommand = command("", "chooseHostSettings", 2)
 val changeHostAdminSettingCommand = command("`", "changeHostAdminSettings", 3)
 val adminBackCommand = command("Назад", "adminBack", 1)
 

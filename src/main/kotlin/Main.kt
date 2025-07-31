@@ -380,50 +380,21 @@ fun showHostSettings(
     chatId: Long,
     bot: Bot
 ) {
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
+    showPaginatedMenu(
+        chatId,
         messageId,
-        replyMarkup = inlineKeyboard {
-            button(blankCommand named "Список ведущих")
-            hostInfos.find().forEach {
-                accounts.get(it.chatId)?.let { acc ->
-                    row {
-                        button(blankCommand named ("👤 " + acc.fullName()))
-                    }
-                    row {
-                        button(blankCommand named "🎮 Лимит игр")
-                        if (it.gameLimit) {
-                            button(gameLimitOnCommand named it.left.toString(), it.chatId, messageId)
-                            button(gameLimitOffCommand, it.chatId, messageId)
-                        } else {
-                            button(gameLimitOnCommand, it.chatId, messageId)
-                        }
-                    }
-                    row {
-                        button(blankCommand named "⏰ Срок ведения")
-                        if (it.timeLimit) {
-                            button(timeLimitOnCommand named it.until.toString(), it.chatId, messageId)
-                            button(timeLimitOffCommand, it.chatId, messageId)
-                        } else {
-                            button(timeLimitOnCommand, it.chatId, messageId)
-                        }
-                    }
-                    row {
-                        button(blankCommand named "👥 Передавать ведение")
-                        button(shareCommand named if (it.canShare) "On" else "Off", it.chatId, messageId)
-                    }
-                    row {
-                        button(blankCommand named "👇 Выбирать роли")
-                        button(canReassignCommand named if (it.canReassign) "On" else "Off", it.chatId, messageId)
-                    }
-                    if (admins.get(it.chatId) == null) {
-                        button(promoteHostCommand, it.chatId, messageId)
-                    } else {
-                        button(blankCommand named "⚛️ Администратор")
-                    }
+        bot,
+        "Список ведущих",
+        hostInfos,
+        {
+            accounts.get(it.chatId)?.let { acc ->
+                row {
+                    button(chooseHostSettingsCommand named ("👤 " + acc.fullName()), -1L, it.chatId)
                     button(deleteHostCommand, it.chatId, messageId)
                 }
             }
+        },
+        {
             button(adminBackCommand, messageId)
         }
     )
