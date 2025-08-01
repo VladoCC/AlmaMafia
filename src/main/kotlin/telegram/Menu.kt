@@ -3,6 +3,7 @@ package org.example.telegram
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
 import org.example.*
+import org.example.db.Collection
 import org.example.game.Town
 import org.example.game.desc
 import org.example.game.nightRoleDesc
@@ -43,20 +44,7 @@ internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
 internal fun showSettingsMenu(it: HostSettings, chatId: Long, messageId: Long, gameMessageId: Long, bot: Bot, desc: String = "") {
     val text = "Настройки" +
             if (desc.isNotBlank()) "\n\nОписание:\n$desc" else ""
-    val msgId = if (messageId == -1L) {
-        val res = bot.sendMessage(
-            ChatId.fromId(chatId),
-            text,
-            replyMarkup = inlineKeyboard { button(blankCommand named "Загрузка...") }
-        )
-        if (res.isSuccess) {
-            res.get().messageId
-        } else {
-            messageId
-        }
-    } else {
-        messageId
-    }
+    val msgId = getMsgId(chatId, messageId, bot, text)
 
     bot.editMessageText(
         ChatId.fromId(chatId),
@@ -229,38 +217,183 @@ internal fun showGameStatusMenu(chatId: Long, messageId: Long, bot: Bot) {
     )
 }
 
-internal fun showHostAdminSettingsMenu(chatId: Long, messageId: Long, bot: Bot) {
+val showPaginatedMenuFunctionsMap = mapOf(
+    "showListHostOptionsMenu" to ::showListHostOptionsMenu,
+    "showListHostSettingsMenu" to ::showListHostSettingsMenu
+)
+
+internal fun <K: Any, T: Any> showPaginatedMenu(
+    chatId: Long,
+    messageId: Long,
+    bot: Bot,
+    title: String,
+    list: Collection<K, T>,
+    actionForEach: KeyboardContext.(T) -> Unit,
+    bottomContent: KeyboardContext.() -> Unit,
+    functionName: String,
+    pageIndex: Int,
+    itemsPerPage: Int = 10
+) {
+    val firstElementIndex = pageIndex * itemsPerPage
+    val listSize = list.find().size
+    val quotient = listSize / itemsPerPage
+    val totalPossiblePages = if (listSize % itemsPerPage == 0) {
+        quotient
+    } else {
+        quotient + 1
+    }
     bot.editMessageReplyMarkup(
         ChatId.fromId(chatId),
         messageId,
         replyMarkup = inlineKeyboard {
-            button(blankCommand named "Ведущие")
-            hostSettings.find().forEach {
-                button(chooseHostAdminCommand named (it.host?.fullName()?: ""), messageId, it.hostId)
+            button(blankCommand named title)
+            button(blankCommand named "Номер страницы: ${pageIndex + 1}")
+            row {
+                if (pageIndex > 0) {
+                    button(
+                        goToPageCommand named "⬅",
+                        messageId,
+                        pageIndex - 1,
+                        functionName
+                    )
+                }
+                if (pageIndex < totalPossiblePages - 1) {
+                    button(
+                        goToPageCommand named "➡",
+                        messageId,
+                        pageIndex + 1,
+                        functionName
+                    )
+                }
             }
-            button(adminBackCommand, messageId)
+            for (i in firstElementIndex until firstElementIndex + itemsPerPage) {
+                if (i < listSize) {
+                    actionForEach(list.find().get(i))
+                }
+            }
+            row {
+                button(
+                    goToPageCommand named "Первая",
+                    messageId,
+                    0,
+                    functionName
+                )
+                button(
+                    goToPageCommand named "Последняя",
+                    messageId,
+                    totalPossiblePages - 1,
+                    functionName
+                )
+            }
+            bottomContent()
         }
+    )
+
+}
+
+internal fun showListHostOptionsMenu(
+    chatId: Long,
+    messageId: Long,
+    bot: Bot,
+    pageIndex: Int = 0
+) {
+    showPaginatedMenu(
+        chatId,
+        messageId,
+        bot,
+        "Ведущие",
+        hostSettings,
+        {
+            button(chooseHostOptionsCommand named (it.host?.fullName()?: ""), -1L, it.hostId)
+        },
+        {
+            button(adminBackCommand, messageId)
+        },
+        "showListHostOptionsMenu",
+        pageIndex
     )
 }
 
-internal fun showChosenSettingsMenu(chatId: Long, messageId: Long, bot: Bot, chosenId: Long) {
+fun getMsgId(chatId: Long, messageId: Long, bot: Bot, text: String): Long {
+    return if (messageId == -1L) {
+        val res = bot.sendMessage(
+            ChatId.fromId(chatId),
+            text,
+            replyMarkup = inlineKeyboard { button(blankCommand named "Загрузка...") }
+        )
+        if (res.isSuccess) {
+            res.get().messageId
+        } else {
+            messageId
+        }
+    } else {
+        messageId
+    }
+}
+
+internal fun showChosenHostOptionsMenu(chatId: Long, messageId: Long, bot: Bot, chosenId: Long) {
+    val msgId = getMsgId(chatId, messageId, bot, "Настройки ведущего")
     hostSettings.get(chosenId)?.let { settings ->
         bot.editMessageReplyMarkup(
             ChatId.fromId(chatId),
-            messageId,
+            msgId,
             replyMarkup = inlineKeyboard {
                 button(blankCommand named "Настройки ${accounts.get(chosenId)?.fullName()?: ""}")
                 HostOptions.entries.forEach { entry ->
                     row {
-                        button(changeHostAdminSettingCommand named entry.shortName, messageId, chosenId, entry.name)
-                        button(changeHostAdminSettingCommand named (if (entry.current(settings)) "✅" else "❌"), messageId, chosenId, entry.name)
+                        button(changeHostOptionsCommand named entry.shortName, msgId, chosenId, entry.name)
+                        button(changeHostOptionsCommand named (if (entry.current(settings)) "✅" else "❌"), msgId, chosenId, entry.name)
                     }
                 }
-                button(adminBackCommand, messageId)
+                button(deleteMsgCommand named "Закрыть", msgId)
             }
         )
         return
     }
+}
+
+internal fun showChosenHostSettingsMenu(chatId: Long, messageId: Long, bot: Bot, hostId: Long) {
+    val msgId = getMsgId(chatId, messageId, bot, "Настройки ведущего")
+    bot.editMessageReplyMarkup(
+        ChatId.fromId(chatId),
+        msgId,
+        replyMarkup = inlineKeyboard {
+            hostInfos.get(hostId)?.let {
+                row {
+                    button(blankCommand named "🎮 Лимит игр")
+                    if (it.gameLimit) {
+                        button(gameLimitOnCommand named it.left.toString(), it.chatId, msgId)
+                        button(gameLimitOffCommand, it.chatId, msgId)
+                    } else {
+                        button(gameLimitOnCommand, it.chatId, msgId)
+                    }
+                }
+                row {
+                    button(blankCommand named "⏰ Срок ведения")
+                    if (it.timeLimit) {
+                        button(timeLimitOnCommand named it.until.toString(), it.chatId, msgId)
+                        button(timeLimitOffCommand, it.chatId, msgId)
+                    } else {
+                        button(timeLimitOnCommand, it.chatId, msgId)
+                    }
+                }
+                row {
+                    button(blankCommand named "👥 Передавать ведение")
+                    button(shareCommand named if (it.canShare) "On" else "Off", it.chatId, msgId)
+                }
+                row {
+                    button(blankCommand named "👇 Выбирать роли")
+                    button(canReassignCommand named if (it.canReassign) "On" else "Off", it.chatId, msgId)
+                }
+                if (admins.get(it.chatId) == null) {
+                    button(promoteHostCommand, it.chatId, msgId)
+                } else {
+                    button(blankCommand named "⚛️ Администратор")
+                }
+            }
+            button(deleteMsgCommand named "Закрыть", msgId)
+        }
+    )
 }
 
 internal fun showKickMenu(game: Game, messageId: Long, bot: Bot, chatId: Long) {

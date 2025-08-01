@@ -98,10 +98,10 @@ val aliveInfoCommand = command("👥 Живые игроки", "liveInfo", 3)
 val updateCheckCommand = command("", "updateCheck", 2)
 
 val hostRequestCommand = command("Запросы на ведение", "hostRequests", 1)
-val hostSettingsCommand = command("Список ведущих", "hostSettings", 1)
+val listHostSettingsCommand = command("Список ведущих", "listHostSettings", 1)
 val adminSettingsCommand = command("Список администраторов", "adminSettings", 1)
 val gamesSettingsCommand = command("Список игр", "gamesSettings", 1)
-val hostAdminSettingsCommand = command("Список настроек ведущих", "hostAdminSettings", 1)
+val listHostOptionsCommand = command("Список настроек ведущих", "listHostOptions", 1)
 val advertCommand = command("Реклама", "advert", 0)
 
 val timeLimitOnCommand = command("Off", "timeLimitOn", 2)
@@ -115,9 +115,12 @@ val promoteHostCommand = command("🧑‍🧒‍🧒 Сделать админи
 val allowHostCommand = command("✅", "allowHost", 2)
 val denyHostCommand = command("❌", "denyHost", 2)
 val removeAdminCommand = command("❌", "removeAdmin", 2)
-val chooseHostAdminCommand = command("`", "chooseHostAdmin", 2)
-val changeHostAdminSettingCommand = command("`", "changeHostAdminSettings", 3)
+val chooseHostOptionsCommand = command("`", "chooseHostOptions", 2)
+val chooseHostSettingsCommand = command("", "chooseHostSettings", 2)
+val changeHostOptionsCommand = command("`", "changeHostOptions", 3)
 val adminBackCommand = command("Назад", "adminBack", 1)
+
+val goToPageCommand = command("Перейти на страницу", "previousPage", 3)
 
 val confirmPromoteCommand = command("Да", "confirmPromote", 3)
 
