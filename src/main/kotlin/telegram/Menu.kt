@@ -217,6 +217,11 @@ internal fun showGameStatusMenu(chatId: Long, messageId: Long, bot: Bot) {
     )
 }
 
+val showPaginatedMenuFunctionsMap = mapOf(
+    "showListHostOptionsMenu" to ::showListHostOptionsMenu,
+    "showListHostSettingsMenu" to ::showListHostSettingsMenu
+)
+
 internal fun <K: Any, T: Any> showPaginatedMenu(
     chatId: Long,
     messageId: Long,
@@ -224,15 +229,61 @@ internal fun <K: Any, T: Any> showPaginatedMenu(
     title: String,
     list: Collection<K, T>,
     actionForEach: KeyboardContext.(T) -> Unit,
-    bottomContent: KeyboardContext.() -> Unit
+    bottomContent: KeyboardContext.() -> Unit,
+    functionName: String,
+    pageIndex: Int,
+    itemsPerPage: Int = 10
 ) {
+    val firstElementIndex = pageIndex * itemsPerPage
+    val listSize = list.find().size
+    val quotient = listSize / itemsPerPage
+    val totalPossiblePages = if (listSize % itemsPerPage == 0) {
+        quotient
+    } else {
+        quotient + 1
+    }
     bot.editMessageReplyMarkup(
         ChatId.fromId(chatId),
         messageId,
         replyMarkup = inlineKeyboard {
             button(blankCommand named title)
-            list.find().forEach {
-                actionForEach(it)
+            button(blankCommand named "Номер страницы: ${pageIndex + 1}")
+            row {
+                if (pageIndex > 0) {
+                    button(
+                        goToPageCommand named "⬅",
+                        messageId,
+                        pageIndex - 1,
+                        functionName
+                    )
+                }
+                if (pageIndex < totalPossiblePages - 1) {
+                    button(
+                        goToPageCommand named "➡",
+                        messageId,
+                        pageIndex + 1,
+                        functionName
+                    )
+                }
+            }
+            for (i in firstElementIndex until firstElementIndex + itemsPerPage) {
+                if (i < listSize) {
+                    actionForEach(list.find().get(i))
+                }
+            }
+            row {
+                button(
+                    goToPageCommand named "Первая",
+                    messageId,
+                    0,
+                    functionName
+                )
+                button(
+                    goToPageCommand named "Последняя",
+                    messageId,
+                    totalPossiblePages - 1,
+                    functionName
+                )
             }
             bottomContent()
         }
@@ -240,7 +291,12 @@ internal fun <K: Any, T: Any> showPaginatedMenu(
 
 }
 
-internal fun showHostAdminSettingsMenu(chatId: Long, messageId: Long, bot: Bot) {
+internal fun showListHostOptionsMenu(
+    chatId: Long,
+    messageId: Long,
+    bot: Bot,
+    pageIndex: Int = 0
+) {
     showPaginatedMenu(
         chatId,
         messageId,
@@ -248,11 +304,13 @@ internal fun showHostAdminSettingsMenu(chatId: Long, messageId: Long, bot: Bot) 
         "Ведущие",
         hostSettings,
         {
-            button(chooseHostAdminCommand named (it.host?.fullName()?: ""), -1L, it.hostId)
+            button(chooseHostOptionsCommand named (it.host?.fullName()?: ""), -1L, it.hostId)
         },
         {
             button(adminBackCommand, messageId)
-        }
+        },
+        "showListHostOptionsMenu",
+        pageIndex
     )
 }
 
@@ -273,7 +331,7 @@ fun getMsgId(chatId: Long, messageId: Long, bot: Bot, text: String): Long {
     }
 }
 
-internal fun showChosenSettingsMenu(chatId: Long, messageId: Long, bot: Bot, chosenId: Long) {
+internal fun showChosenHostOptionsMenu(chatId: Long, messageId: Long, bot: Bot, chosenId: Long) {
     val msgId = getMsgId(chatId, messageId, bot, "Настройки ведущего")
     hostSettings.get(chosenId)?.let { settings ->
         bot.editMessageReplyMarkup(
@@ -283,8 +341,8 @@ internal fun showChosenSettingsMenu(chatId: Long, messageId: Long, bot: Bot, cho
                 button(blankCommand named "Настройки ${accounts.get(chosenId)?.fullName()?: ""}")
                 HostOptions.entries.forEach { entry ->
                     row {
-                        button(changeHostAdminSettingCommand named entry.shortName, msgId, chosenId, entry.name)
-                        button(changeHostAdminSettingCommand named (if (entry.current(settings)) "✅" else "❌"), msgId, chosenId, entry.name)
+                        button(changeHostOptionsCommand named entry.shortName, msgId, chosenId, entry.name)
+                        button(changeHostOptionsCommand named (if (entry.current(settings)) "✅" else "❌"), msgId, chosenId, entry.name)
                     }
                 }
                 button(deleteMsgCommand named "Закрыть", msgId)

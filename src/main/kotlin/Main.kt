@@ -375,10 +375,11 @@ private fun timerText(time: Long): String {
     return text
 }
 
-fun showHostSettings(
-    messageId: Long,
+fun showListHostSettingsMenu(
     chatId: Long,
-    bot: Bot
+    messageId: Long,
+    bot: Bot,
+    pageIndex: Int = 0
 ) {
     showPaginatedMenu(
         chatId,
@@ -396,7 +397,9 @@ fun showHostSettings(
         },
         {
             button(adminBackCommand, messageId)
-        }
+        },
+        "showListHostSettingsMenu",
+        pageIndex
     )
 }
 
@@ -444,10 +447,10 @@ fun showAdmin(
                 }
             }
             button(hostRequestCommand, messageId)
-            button(hostSettingsCommand, messageId)
+            button(listHostSettingsCommand, messageId)
             button(adminSettingsCommand, messageId)
             button(gamesSettingsCommand, messageId)
-            button(hostAdminSettingsCommand, messageId)
+            button(listHostOptionsCommand, messageId)
             button(advertCommand)
             button(deleteMsgCommand, messageId)
         }

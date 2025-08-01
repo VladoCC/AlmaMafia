@@ -301,7 +301,7 @@ object MafiaHandler {
                             }
                         }
 
-                        showHostSettings(adminMenu.messageId, chatId, bot)
+                        showListHostSettingsMenu(chatId, adminMenu.messageId, bot)
                         messageId?.let { id -> bot.deleteMessage(ChatId.fromId(chatId), id) }
                         adminContexts.update(chatId) {
                             state = AdminState.NONE
@@ -673,8 +673,8 @@ object MafiaHandler {
             parametrized(hostRequestCommand) {
                 showHostRequests(long(0), chatId, bot)
             }
-            parametrized(hostSettingsCommand) {
-                showHostSettings(long(0), chatId, bot)
+            parametrized(listHostSettingsCommand) {
+                showListHostSettingsMenu(chatId, long(0), bot)
             }
             parametrized(adminSettingsCommand) {
                 showAdminListMenu(chatId, long(0), bot)
@@ -717,7 +717,7 @@ object MafiaHandler {
             }
             parametrized(deleteHostCommand) {
                 hostInfos.delete(long(0))
-                showHostSettings(long(1), chatId, bot)
+                showListHostSettingsMenu(chatId, long(1), bot)
             }
             parametrized(promoteHostCommand) {
                 accounts.get(long(0))?.let {
@@ -764,12 +764,12 @@ object MafiaHandler {
                 admins.delete(long(0))
                 showAdminListMenu(chatId, long(1), bot)
             }
-            parametrized(chooseHostAdminCommand) {
-                showChosenSettingsMenu(chatId, long(0), bot, long(1))
+            parametrized(chooseHostOptionsCommand) {
+                showChosenHostOptionsMenu(chatId, long(0), bot, long(1))
             }
-            parametrized(changeHostAdminSettingCommand) {
+            parametrized(changeHostOptionsCommand) {
                 hostSettings.update(long(1)) { HostOptions.valueOf(str(2)).update(this) }
-                showChosenSettingsMenu(chatId, long(0), bot, long(1))
+                showChosenHostOptionsMenu(chatId, long(0), bot, long(1))
             }
             parametrized(chooseHostSettingsCommand) {
                 showChosenHostSettingsMenu(chatId, long(0), bot, long(1))
@@ -781,11 +781,19 @@ object MafiaHandler {
                 }
                 adminContexts.delete(chatId)
             }
+            parametrized(goToPageCommand) {
+                showPaginatedMenuFunctionsMap.get(str(2))?.invoke(
+                    chatId,
+                    long(0),
+                    bot,
+                    int(1)
+                )
+            }
             parametrized(gamesSettingsCommand) {
                 showGameStatusMenu(chatId, long(0), bot)
             }
-            parametrized(hostAdminSettingsCommand) {
-                showHostAdminSettingsMenu(chatId, long(0), bot)
+            parametrized(listHostOptionsCommand) {
+                showListHostOptionsMenu(chatId, long(0), bot)
             }
             parametrized(terminateGameCommand) {
                 games.get(id(0))?.let { game ->
