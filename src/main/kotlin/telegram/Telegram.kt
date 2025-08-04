@@ -405,23 +405,13 @@ sealed interface CallContext {
     val bot: Bot
 
     fun sendClosable(text: String, definition: KeyboardContext.() -> Unit = {}): Long {
-        val chat = ChatId.fromId(chatId)
-        val res = bot.sendMessage(
-            chat,
-            text
+        return inlineKeyboardLambdaSendMessage(
+            chatId, bot, text,
+            { newMessageId ->
+                definition()
+                button(deleteMsgCommand, newMessageId)
+            }
         )
-        if (res.isSuccess) {
-            bot.editMessageReplyMarkup(
-                chat,
-                res.get().messageId,
-                replyMarkup = inlineKeyboard {
-                    definition()
-                    button(deleteMsgCommand, res.get().messageId)
-                }
-            )
-            return res.get().messageId
-        }
-        return -1L
     }
 }
 

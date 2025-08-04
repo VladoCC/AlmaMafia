@@ -594,22 +594,16 @@ internal fun sendPlayerInfo(
                     "Ведущий начал игру",
                     replyMarkup = mafiaKeyboard(chatId)
                 )
-                val res = bot.sendMessage(
-                    chat,
+                inlineKeyboardLambdaSendMessage(
+                    chatId,
+                    bot,
                     getRoleDesc(role),
-                    parseMode = ParseMode.HTML,
+                    { newMessageId -> button(gameInfoCommand, role.id, newMessageId) },
+                    { newMessageId ->
+                        messageLinks.save(MessageLink(ObjectId(), game.id, chatId, newMessageId))
+                    },
+                    ParseMode.HTML
                 )
-                if (res.isSuccess) {
-                    val msgId = res.get().messageId
-                    bot.editMessageReplyMarkup(
-                        chat,
-                        msgId,
-                        replyMarkup = inlineKeyboard {
-                            button(gameInfoCommand, role.id, msgId)
-                        }
-                    )
-                    messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
-                }
             } catch (e: Exception) {
                 log.error("Unable to send player info message to $con, role: $role", e)
             }
