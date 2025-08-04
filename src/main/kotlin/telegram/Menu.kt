@@ -24,7 +24,7 @@ fun getRecentGames(): List<GameSummary> {
 internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
     val active = getActiveGames()
     val recent = getRecentGames()
-    inlineKeyboardLambdaSendMessage(
+    inlineKeyboard(
         chat.id,
         bot,
         if (active.isNotEmpty() || recent.isNotEmpty()) "Реклама" else "Нет доступных игр",
@@ -90,7 +90,7 @@ internal fun showRecentGamesMenu(chatId: Long, messageId: Long, bot: Bot, pageIn
 }
 
 internal fun showSettingsMenu(it: HostSettings, chatId: Long, messageId: Long, gameMessageId: Long, bot: Bot, desc: String = "") {
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         messageId,
         bot,
@@ -115,7 +115,7 @@ internal fun showLobbyMenu(
     bot: Bot,
     forceUpdate: Boolean = false
 ): Long {
-    return inlineKeyboardLambda(chatId, messageId, bot, "Меню ведущего:", { newMessageId ->
+    return inlineKeyboard(chatId, messageId, bot, "Меню ведущего:", { newMessageId ->
             val players = connections.find { gameId == game.id }
             val playerList = players.sortedWith(compareBy({ it.pos }, { it.createdAt }))
             val ordered = reordered(playerList)
@@ -176,7 +176,7 @@ internal fun showPlayerMenu(
     connectionId: ConnectionId,
     value: Int = 0
 ): Long {
-    return numpadKeyboardLambda(
+    return numpadKeyboard(
         chatId,
         messageId,
         bot,
@@ -191,7 +191,7 @@ internal fun showPlayerMenu(
 }
 
 internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long) {
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId, messageId, bot,
         { newMessageId ->
             button(blankCommand named "Статус игроков")
@@ -292,7 +292,7 @@ internal fun <T: Any> showPaginatedMenu(
     desiredPageIndex: Int,
     itemsPerPage: Int = defaultItemsPerPage
 ) {
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         messageId,
         bot,
@@ -387,7 +387,7 @@ internal fun <K: Any, T: Any> showPaginatedAdminSubmenu(
     )
 }
 
-internal fun showListHostOptionsMenu(
+internal fun showHostAdminSettingsMenu(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -400,9 +400,9 @@ internal fun showListHostOptionsMenu(
         "Ведущие",
         hostSettings,
         {
-            button(chooseHostOptionsCommand named (it.host?.fullName()?: ""), -1L, it.hostId)
+            button(chooseHostAdminCommand named (it.host?.fullName()?: ""), -1L, it.hostId)
         },
-        listHostOptionsCommand,
+        hostAdminSettingsCommand,
         pageIndex
     )
 }
@@ -435,7 +435,7 @@ fun getNewMessageId(
     }
 }
 
-fun generalKeyboardLambda(
+fun keyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -462,7 +462,7 @@ fun generalKeyboardLambda(
     return newMessageId;
 }
 
-fun inlineKeyboardLambda(
+fun inlineKeyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -472,13 +472,13 @@ fun inlineKeyboardLambda(
     resSuccess: (Long) -> Unit,
     parseMode: ParseMode? = null
 ): Long {
-    return generalKeyboardLambda(chatId, messageId, bot, text,
+    return keyboard(chatId, messageId, bot, text,
         { newMessageId -> inlineKeyboard { definition(newMessageId) } },
         shouldAttemptToMakeNewMessageId, resSuccess, parseMode
     )
 }
 
-fun inlineKeyboardLambda(
+fun inlineKeyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -486,13 +486,13 @@ fun inlineKeyboardLambda(
     definition: KeyboardContext.(Long) -> Unit,
     parseMode: ParseMode? = null
 ): Long {
-    return inlineKeyboardLambda(chatId, messageId, bot, text, definition,
+    return inlineKeyboard(chatId, messageId, bot, text, definition,
         { it }, {  },
         parseMode
     )
 }
 
-fun inlineKeyboardLambdaSendMessage(
+fun inlineKeyboard(
     chatId: Long,
     bot: Bot,
     text: String,
@@ -500,41 +500,41 @@ fun inlineKeyboardLambdaSendMessage(
     resSuccess: (Long) -> Unit,
     parseMode: ParseMode? = null
 ): Long {
-    return inlineKeyboardLambda(
+    return inlineKeyboard(
         chatId, -1L, bot, text, definition, { it }, resSuccess, parseMode
     )
 }
 
-fun inlineKeyboardLambdaSendMessage(
+fun inlineKeyboard(
     chatId: Long,
     bot: Bot,
     text: String,
     definition: KeyboardContext.(Long) -> Unit,
     parseMode: ParseMode? = null
 ): Long {
-    return inlineKeyboardLambda(chatId, -1L, bot, text, definition, parseMode)
+    return inlineKeyboard(chatId, -1L, bot, text, definition, parseMode)
 }
 
-fun inlineKeyboardLambda(
+fun inlineKeyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
     definition: KeyboardContext.(Long) -> Unit,
     parseMode: ParseMode? = null
 ): Long {
-    return inlineKeyboardLambda(chatId, messageId, bot, null, definition, parseMode)
+    return inlineKeyboard(chatId, messageId, bot, null, definition, parseMode)
 }
 
-fun emptyKeyboardLambda(
+fun emptyKeyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
     text: String
 ): Long {
-    return inlineKeyboardLambda(chatId, messageId, bot, text, {})
+    return inlineKeyboard(chatId, messageId, bot, text, {})
 }
 
-fun<T: Any> numpadKeyboardLambda(
+fun<T: Any> numpadKeyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -549,7 +549,7 @@ fun<T: Any> numpadKeyboardLambda(
     resSuccess: (Long) -> Unit,
     parseMode: ParseMode? = null
 ): Long {
-    return generalKeyboardLambda(chatId, messageId, bot, text,
+    return keyboard(chatId, messageId, bot, text,
         { newMessageId -> numpadKeyboard(
             title, numCommand, acceptCommand, cancelCommand, target, value, newMessageId
         )
@@ -558,7 +558,7 @@ fun<T: Any> numpadKeyboardLambda(
     )
 }
 
-fun<T: Any> numpadKeyboardLambda(
+fun<T: Any> numpadKeyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -571,14 +571,14 @@ fun<T: Any> numpadKeyboardLambda(
     value: Int,
     parseMode: ParseMode? = null
 ): Long {
-    return numpadKeyboardLambda(
+    return numpadKeyboard(
         chatId, messageId, bot, text, title, numCommand, acceptCommand, cancelCommand, target, value,
         { it }, {  },
         parseMode
     )
 }
 
-fun<T: Any> numpadKeyboardLambda(
+fun<T: Any> numpadKeyboard(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -590,19 +590,19 @@ fun<T: Any> numpadKeyboardLambda(
     value: Int,
     parseMode: ParseMode? = null
 ): Long {
-    return numpadKeyboardLambda(
+    return numpadKeyboard(
         chatId, messageId, bot, null, title, numCommand, acceptCommand, cancelCommand, target, value, parseMode
     )
 }
 
-internal fun showChosenHostOptionsMenu(chatId: Long, messageId: Long, bot: Bot, chosenId: Long) {
-    inlineKeyboardLambda(chatId, messageId, bot, "Настройки ведущего", { newMessageId ->
+internal fun showChosenSettingsMenu(chatId: Long, messageId: Long, bot: Bot, chosenId: Long) {
+    inlineKeyboard(chatId, messageId, bot, "Настройки ведущего", { newMessageId ->
         hostSettings.get(chosenId)?.let { settings ->
             button(blankCommand named "Настройки ${accounts.get(chosenId)?.fullName()?: ""}")
             HostOptions.entries.forEach { entry ->
                 row {
-                    button(changeHostOptionsCommand named entry.shortName, newMessageId, chosenId, entry.name)
-                    button(changeHostOptionsCommand named (if (entry.current(settings)) "✅" else "❌"), newMessageId, chosenId, entry.name)
+                    button(changeHostAdminSettingCommand named entry.shortName, newMessageId, chosenId, entry.name)
+                    button(changeHostAdminSettingCommand named (if (entry.current(settings)) "✅" else "❌"), newMessageId, chosenId, entry.name)
                 }
             }
             button(deleteMsgCommand named "Закрыть", newMessageId)
@@ -610,8 +610,8 @@ internal fun showChosenHostOptionsMenu(chatId: Long, messageId: Long, bot: Bot, 
     })
 }
 
-internal fun showChosenHostSettingsMenu(chatId: Long, messageId: Long, bot: Bot, hostId: Long) {
-    inlineKeyboardLambda(
+internal fun showHostSettings(chatId: Long, messageId: Long, bot: Bot, hostId: Long) {
+    inlineKeyboard(
         chatId,
         messageId,
         bot,
@@ -689,7 +689,7 @@ internal fun showNightRoleMenu(
     messageId: Long
 ) {
     val wake = if (town.night.size > town.index) town.night[town.index] else null
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         messageId,
         bot,
@@ -767,7 +767,7 @@ internal fun showDayMenu(
         val view = settings?.dayView ?: DayView.ALL
         val fallMode = settings?.fallMode ?: false
 
-        inlineKeyboardLambda(
+        inlineKeyboard(
             chatId,
             messageId,
             bot,
@@ -850,7 +850,7 @@ internal fun showAliveMenu(
     } else {
         ""
     }
-    inlineKeyboardLambda(
+    inlineKeyboard(
         con.playerId,
         messageId,
         bot,

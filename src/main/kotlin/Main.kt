@@ -215,7 +215,7 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    inlineKeyboardLambdaSendMessage(
+    inlineKeyboard(
         chatId,
         this,
         text,
@@ -227,10 +227,10 @@ private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
 
 fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long, chatId: Long) {
     val id = ObjectId()
-    emptyKeyboardLambda(chatId, messageId, bot, "Возможные сообщения:")
+    emptyKeyboard(chatId, messageId, bot, "Возможные сообщения:")
     val adList = ads.find()
     val messages = adList.map { message ->
-        inlineKeyboardLambdaSendMessage(
+        inlineKeyboard(
             chatId,
             bot,
             message.text,
@@ -238,7 +238,7 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
         )
     }
     val lastId = messages.last()
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         lastId,
         bot,
@@ -298,7 +298,7 @@ internal fun updateSettingsView(
 fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long, bot: Bot) {
     town.playerMap[playerPos]?.let<Person, Unit> { player ->
         val fallMode = games.get(town.gameId)?.host?.settings?.fallMode ?: false
-        inlineKeyboardLambda(
+        inlineKeyboard(
             chatId,
             messageId,
             bot,
@@ -337,7 +337,7 @@ private fun updateTimer(
     bot: Bot
 ) {
     val text = timerText(timer.time)
-    inlineKeyboardLambda(
+    inlineKeyboard(
         timer.chatId,
         timer.messageId,
         bot,
@@ -364,7 +364,7 @@ private fun timerText(time: Long): String {
     return text
 }
 
-fun showListHostSettingsMenu(
+fun showHostSettings(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -384,7 +384,7 @@ fun showListHostSettingsMenu(
                 }
             }
         },
-        listHostSettingsCommand,
+        hostSettingsCommand,
         pageIndex
     )
 }
@@ -420,7 +420,7 @@ fun showAdmin(
     messageId: Long,
     bot: Bot
 ) {
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         messageId,
         bot,
@@ -436,10 +436,10 @@ fun showAdmin(
                 }
             }
             button(hostRequestCommand, messageId, 0)
-            button(listHostSettingsCommand, messageId, 0)
+            button(hostSettingsCommand, messageId, 0)
             button(adminSettingsCommand, messageId, 0)
             button(gamesSettingsCommand, messageId, 0)
-            button(listHostOptionsCommand, messageId, 0)
+            button(hostAdminSettingsCommand, messageId, 0)
             button(advertCommand)
             button(deleteMsgCommand, messageId)
         }
@@ -648,7 +648,7 @@ fun showRoles(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }
     val gameSetups = setups.find { gameId == game.id }
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         messageId,
         bot,
@@ -704,7 +704,7 @@ fun showPreview(
 ) {
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         messageId,
         bot,
@@ -767,7 +767,7 @@ fun showGames(
     bot: Bot,
     forceUpdate: Boolean = false
 ) {
-    inlineKeyboardLambda(
+    inlineKeyboard(
         chatId,
         messageId,
         bot,

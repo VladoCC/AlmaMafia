@@ -594,7 +594,7 @@ internal fun sendPlayerInfo(
                     "Ведущий начал игру",
                     replyMarkup = mafiaKeyboard(chatId)
                 )
-                inlineKeyboardLambdaSendMessage(
+                inlineKeyboard(
                     chatId,
                     bot,
                     getRoleDesc(role),
