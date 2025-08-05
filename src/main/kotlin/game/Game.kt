@@ -256,20 +256,21 @@ internal fun setPlayerNum(
             Date(System.currentTimeMillis() + sendPendingAfterSec * 1000)
         )
     )
-    val res = bot.sendMessage(
-        ChatId.fromId(chatId),
-        Const.Message.numSaved
-    )
-    if (res.isSuccess) {
-        bombs.save(
-            TimedMessage(
-                ObjectId(),
-                chatId,
-                res.get().messageId,
-                Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
+    sendMessage(
+        bot,
+        chatId,
+        Const.Message.numSaved,
+        { msgId ->
+            bombs.save(
+                TimedMessage(
+                    ObjectId(),
+                    chatId,
+                    msgId,
+                    Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
+                )
             )
-        )
-    }
+        }
+    )
 }
 
 internal fun joinGame(
@@ -470,11 +471,11 @@ internal fun executeNightAction(
                     return@map text
                 }.filterNotNull().joinToString("\n")
                 town.index++
-                bot.editMessageText(
-                    ChatId.fromId(chatId),
+                editMessageInline(
+                    bot,
+                    chatId,
                     messageId,
-                    text = if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
-                    replyMarkup = inlineKeyboard {
+                    {
                         row {
                             button(cancelActionCommand, messageId)
                             if (town.index >= town.night.size) {
@@ -483,7 +484,8 @@ internal fun executeNightAction(
                                 button(nextRoleCommand, messageId)
                             }
                         }
-                    }
+                    },
+                    text = if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing
                 )
             }
         } catch (e: Exception) {

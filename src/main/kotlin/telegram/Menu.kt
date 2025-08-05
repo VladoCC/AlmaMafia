@@ -31,12 +31,8 @@ internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
             if (active.isNotEmpty()) {
                 button(listActiveGamesCommand, msgId, 0)
             }
-
             if (recent.isNotEmpty()) {
                 button(listRecentGamesCommand, msgId, 0)
-            }
-            recent.forEach {
-
             }
             button(deleteMsgCommand, msgId)
         }
@@ -463,7 +459,8 @@ fun editMessage(
     chatId: Long,
     messageId: Long,
     replyMarkup: (Long) -> ReplyMarkup? = { null },
-    text: String? = null
+    text: String? = null,
+    parseMode: ParseMode? = null
 ) {
     if (text == null) {
         bot.editMessageReplyMarkup(
@@ -476,6 +473,7 @@ fun editMessage(
             ChatId.fromId(chatId),
             messageId,
             text = text,
+            parseMode = parseMode,
             replyMarkup = replyMarkup(messageId)
         )
     }
@@ -486,12 +484,13 @@ fun editMessageInline(
     chatId: Long,
     messageId: Long,
     definition: KeyboardContext.(Long) -> Unit,
-    text: String? = null
+    text: String? = null,
+    parseMode: ParseMode? = null
 ) {
     editMessage(
         bot, chatId, messageId,
         { msgId -> inlineKeyboard { definition(messageId) } },
-        text
+        text, parseMode
     )
 }
 
