@@ -588,22 +588,21 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
-                val chat = ChatId.fromId(con.playerId)
-                bot.sendMessage(
-                    chat,
-                    "Ведущий начал игру",
-                    replyMarkup = mafiaKeyboard(chatId)
-                )
-                inlineKeyboard(
-                    chatId,
+                sendMarkedUpMessage(
                     bot,
-                    getRoleDesc(role),
-                    { newMessageId -> button(gameInfoCommand, role.id, newMessageId) },
-                    { newMessageId ->
-                        messageLinks.save(MessageLink(ObjectId(), game.id, chatId, newMessageId))
+                    chatId,
+                    "Ведущий начал игру",
+                    { mafiaKeyboard(chatId) }
+                )
+                sendMessageInline(
+                    bot, chatId, getRoleDesc(role),
+                    { msgId ->
+                        button(gameInfoCommand, role.id, msgId)
                     },
+                    { msgId -> messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId)) },
                     ParseMode.HTML
                 )
+
             } catch (e: Exception) {
                 log.error("Unable to send player info message to $con, role: $role", e)
             }

@@ -24,22 +24,21 @@ fun getRecentGames(): List<GameSummary> {
 internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
     val active = getActiveGames()
     val recent = getRecentGames()
-    inlineKeyboard(
-        chat.id,
-        bot,
+    sendMessageInline(
+        bot, chat.id,
         if (active.isNotEmpty() || recent.isNotEmpty()) "Реклама" else "Нет доступных игр",
-        { newMessageId ->
+        { msgId ->
             if (active.isNotEmpty()) {
-                button(listActiveGamesCommand, newMessageId, 0)
+                button(listActiveGamesCommand, msgId, 0)
             }
 
             if (recent.isNotEmpty()) {
-                button(listRecentGamesCommand, newMessageId, 0)
+                button(listRecentGamesCommand, msgId, 0)
             }
             recent.forEach {
 
             }
-            button(deleteMsgCommand, newMessageId)
+            button(deleteMsgCommand, msgId)
         }
     )
 }
@@ -89,18 +88,32 @@ internal fun showRecentGamesMenu(chatId: Long, messageId: Long, bot: Bot, pageIn
     )
 }
 
-internal fun showSettingsMenu(it: HostSettings, chatId: Long, messageId: Long, gameMessageId: Long, bot: Bot, desc: String = "") {
-    inlineKeyboard(
-        chatId,
-        messageId,
+internal fun showSettingsMenu(
+    hostSettings: HostSettings,
+    chatId: Long,
+    messageId: Long,
+    gameMessageId: Long,
+    bot: Bot,
+    desc: String = ""
+) {
+    val msgId = if (messageId == -1L) {
+        sendMessage(
+            bot, chatId,
+            "Настройки" +
+                if (desc.isNotBlank()) "\n\nОписание:\n$desc" else ""
+        )
+    } else {
+        messageId
+    }
+    editMessageInline(
         bot,
-        "Настройки" +
-                if (desc.isNotBlank()) "\n\nОписание:\n$desc" else "",
-        { msgId ->
+        chatId,
+        msgId,
+        {
             HostOptions.entries.forEach { entry ->
                 row {
                     button(settingDescCommand named entry.shortName, msgId, gameMessageId, entry.name)
-                    button(hostSettingCommand named (if (entry.current(it)) "✅" else "❌"), msgId, gameMessageId, entry.name)
+                    button(hostSettingCommand named (if (entry.current(hostSettings)) "✅" else "❌"), msgId, gameMessageId, entry.name)
                 }
             }
             button(deleteMsgCommand named "Закрыть", msgId)
@@ -115,32 +128,46 @@ internal fun showLobbyMenu(
     bot: Bot,
     forceUpdate: Boolean = false
 ): Long {
-    return inlineKeyboard(chatId, messageId, bot, "Меню ведущего:", { newMessageId ->
+    val msgId = if (forceUpdate || messageId == -1L) {
+        sendMessage(
+            bot, chatId, "Меню ведущего:",
+            { msgId ->
+                accounts.update(chatId) {
+                    menuMessageId = msgId
+                }
+            }
+        )
+    } else {
+        messageId
+    }
+    editMessageInline(
+        bot, chatId, msgId,
+        {
             val players = connections.find { gameId == game.id }
             val playerList = players.sortedWith(compareBy({ it.pos }, { it.createdAt }))
             val ordered = reordered(playerList)
             ordered.chunked(2).forEach {
                 val first = it[0]
                 row {
-                    button(detailsCommand named first.name(), first.id, newMessageId)
+                    button(detailsCommand named first.name(), first.id, msgId)
                     button(
                         if (first.pos == Int.MAX_VALUE || first.pos < 1)
                             positionCommand
                         else positionCommand named first.pos.toString(),
                         first.id,
                         0,
-                        newMessageId
+                        msgId
                     )
                     if (it.size > 1) {
                         val second = it[1]
-                        button(detailsCommand named second.name(), second.id, newMessageId)
+                        button(detailsCommand named second.name(), second.id, msgId)
                         button(
                             if (second.pos == Int.MAX_VALUE || first.pos < 1)
                                 positionCommand
                             else positionCommand named second.pos.toString(),
                             second.id,
                             0,
-                            newMessageId
+                            msgId
                         )
                     } else {
                         button(blankCommand)
@@ -151,22 +178,15 @@ internal fun showLobbyMenu(
             row {
                 button(command("Игроков: ${players.size}", "default"))
             }
-            row { button(dummyCommand, newMessageId) }
-            row { button(menuKickCommand, newMessageId, 0) }
+            row { button(dummyCommand, msgId) }
+            row { button(menuKickCommand, msgId, 0) }
             if (game.creator?.hostInfo?.canShare == true) {
-                button(changeHostCommand, newMessageId)
+                button(changeHostCommand, msgId)
             }
-            button(menuRolesCommand, newMessageId)
-        },
-        { equalsNegativeOne: Boolean ->
-            equalsNegativeOne || forceUpdate
-        },
-        { newMessageId ->
-            accounts.update(chatId) {
-                menuMessageId = newMessageId
-            }
+            button(menuRolesCommand, msgId)
         }
     )
+    return msgId
 }
 
 internal fun showPlayerMenu(
@@ -176,11 +196,15 @@ internal fun showPlayerMenu(
     connectionId: ConnectionId,
     value: Int = 0
 ): Long {
-    return numpadKeyboard(
-        chatId,
-        messageId,
+    val msgId = if (messageId == -1L) {
+        sendMessage(bot, chatId, "Меню игрока:")
+    } else {
+        messageId
+    }
+    editMessageNumpad(
         bot,
-        "Меню игрока:",
+        chatId,
+        msgId,
         "Номер игрока",
         playerNumCommand,
         playerConfirmCommand,
@@ -188,12 +212,13 @@ internal fun showPlayerMenu(
         connectionId,
         value
     )
+    return msgId
 }
 
 internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long) {
-    inlineKeyboard(
-        chatId, messageId, bot,
-        { newMessageId ->
+    editMessageInline(
+        bot, chatId, messageId,
+        { msgId ->
             button(blankCommand named "Статус игроков")
             val cons = pairings.find { gameId == game.id }.sortedBy { it.connection?.pos ?: -1 }
             val notified = cons.count { it.connection?.notified ?: false }
@@ -206,7 +231,7 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
                             button(blankCommand named "${connection.pos}. ${connection.name()}")
                             val textLeft = if (connection.notified) "🫡" else "🌚"
                             if (connection.bot) {
-                                button(markBotCommand named textLeft, connection.id, newMessageId)
+                                button(markBotCommand named textLeft, connection.id, msgId)
                             } else {
                                 button(blankCommand named textLeft)
                             }
@@ -229,7 +254,7 @@ internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long)
             }
 
             button(blankCommand named "Ознакомлены: $notified / ${cons.size}")
-            button(proceedCommand, newMessageId)
+            button(proceedCommand, msgId)
         }
     )
 }
@@ -292,12 +317,16 @@ internal fun <T: Any> showPaginatedMenu(
     desiredPageIndex: Int,
     itemsPerPage: Int = defaultItemsPerPage
 ) {
-    inlineKeyboard(
-        chatId,
-        messageId,
+    val msgId = if (messageId == -1L) {
+        sendMessage(bot, chatId, title)
+    } else {
+        messageId
+    }
+    editMessageInline(
         bot,
-        title,
-        { newMessageId ->
+        chatId,
+        msgId,
+        {
             button(blankCommand named title)
             val listSize = list.size
             if (listSize > 0) {
@@ -316,10 +345,10 @@ internal fun <T: Any> showPaginatedMenu(
                 val firstElementIndex = pageIndex * itemsPerPage
                 row {
                     if (pageIndex > 0) {
-                        button(menuCommand named "⬅", newMessageId, pageIndex - 1)
+                        button(menuCommand named "⬅", msgId, pageIndex - 1)
                     }
                     if (pageIndex < totalAvailablePages - 1) {
-                        button(menuCommand named "➡", newMessageId, pageIndex + 1)
+                        button(menuCommand named "➡", msgId, pageIndex + 1)
                     }
                 }
                 for (i in firstElementIndex until firstElementIndex + itemsPerPage) {
@@ -329,14 +358,14 @@ internal fun <T: Any> showPaginatedMenu(
                 }
                 if (totalAvailablePages > 1) {
                     row {
-                        button(menuCommand named "Первая", newMessageId, 0)
-                        button(menuCommand named "Последняя", newMessageId, totalAvailablePages - 1)
+                        button(menuCommand named "Первая", msgId, 0)
+                        button(menuCommand named "Последняя", msgId, totalAvailablePages - 1)
                     }
                 }
             } else {
                 button(blankCommand named "🤷 Пусто")
             }
-            bottomContent(newMessageId)
+            bottomContent(msgId)
         }
     )
 }
@@ -407,250 +436,192 @@ internal fun showHostAdminSettingsMenu(
     )
 }
 
-fun getNewMessageId(
-    chatId: Long,
-    messageId: Long,
+fun sendMessage(
     bot: Bot,
-    text: String?,
-    shouldAttemptToMakeNewMessageId: (Boolean) -> Boolean,
-    resSuccess: (Long) -> Unit,
+    chatId: Long,
+    text: String,
+    resSuccess: (Long) -> Unit = {  },
     parseMode: ParseMode? = null
 ): Long {
-    return if (shouldAttemptToMakeNewMessageId(messageId == -1L)) {
-        val res = bot.sendMessage(
-            ChatId.fromId(chatId),
-            text.toString(),
-            replyMarkup = inlineKeyboard { button(blankCommand named "Загрузка...") },
-            parseMode = parseMode
-        )
-        if (res.isSuccess) {
-            val newMessageId = res.get().messageId
-            resSuccess(newMessageId)
-            newMessageId
-        } else {
-            messageId
-        }
+    val res = bot.sendMessage(
+        ChatId.fromId(chatId),
+        text,
+        replyMarkup = inlineKeyboard { button(blankCommand named "Загрузка...") },
+        parseMode = parseMode
+    )
+    return if (res.isSuccess) {
+        val msgId = res.get().messageId
+        resSuccess(msgId)
+        msgId
     } else {
-        messageId
+        -1L
     }
 }
 
-fun keyboard(
+fun editMessage(
+    bot: Bot,
     chatId: Long,
     messageId: Long,
-    bot: Bot,
-    text: String?,
-    replyMarkup: (Long) -> ReplyMarkup,
-    shouldAttemptToMakeNewMessageId: (Boolean) -> Boolean,
-    resSuccess: (Long) -> Unit,
-    parseMode: ParseMode? = null
-): Long {
-    val newMessageId = getNewMessageId(
-        chatId,
-        messageId,
-        bot,
-        text,
-        shouldAttemptToMakeNewMessageId,
-        resSuccess,
-        parseMode
-    )
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
-        newMessageId,
-        replyMarkup = replyMarkup(newMessageId)
-    )
-    return newMessageId;
-}
-
-fun inlineKeyboard(
-    chatId: Long,
-    messageId: Long,
-    bot: Bot,
-    text: String?,
-    definition: KeyboardContext.(Long) -> Unit,
-    shouldAttemptToMakeNewMessageId: (Boolean) -> Boolean,
-    resSuccess: (Long) -> Unit,
-    parseMode: ParseMode? = null
-): Long {
-    return keyboard(chatId, messageId, bot, text,
-        { newMessageId -> inlineKeyboard { definition(newMessageId) } },
-        shouldAttemptToMakeNewMessageId, resSuccess, parseMode
-    )
-}
-
-fun inlineKeyboard(
-    chatId: Long,
-    messageId: Long,
-    bot: Bot,
-    text: String?,
-    definition: KeyboardContext.(Long) -> Unit,
-    parseMode: ParseMode? = null
-): Long {
-    return inlineKeyboard(chatId, messageId, bot, text, definition,
-        { it }, {  },
-        parseMode
-    )
-}
-
-fun inlineKeyboard(
-    chatId: Long,
-    bot: Bot,
-    text: String,
-    definition: KeyboardContext.(Long) -> Unit,
-    resSuccess: (Long) -> Unit,
-    parseMode: ParseMode? = null
-): Long {
-    return inlineKeyboard(
-        chatId, -1L, bot, text, definition, { it }, resSuccess, parseMode
-    )
-}
-
-fun inlineKeyboard(
-    chatId: Long,
-    bot: Bot,
-    text: String,
-    definition: KeyboardContext.(Long) -> Unit,
-    parseMode: ParseMode? = null
-): Long {
-    return inlineKeyboard(chatId, -1L, bot, text, definition, parseMode)
-}
-
-fun inlineKeyboard(
-    chatId: Long,
-    messageId: Long,
-    bot: Bot,
-    definition: KeyboardContext.(Long) -> Unit,
-    parseMode: ParseMode? = null
-): Long {
-    return inlineKeyboard(chatId, messageId, bot, null, definition, parseMode)
-}
-
-fun emptyKeyboard(
-    chatId: Long,
-    messageId: Long,
-    bot: Bot,
-    text: String
-): Long {
-    return inlineKeyboard(chatId, messageId, bot, text, {})
-}
-
-fun<T: Any> numpadKeyboard(
-    chatId: Long,
-    messageId: Long,
-    bot: Bot,
-    text: String?,
-    title: String,
-    numCommand: Command,
-    acceptCommand: Command?,
-    cancelCommand: Command,
-    target: T,
-    value: Int,
-    shouldAttemptToMakeNewMessageId: (Boolean) -> Boolean,
-    resSuccess: (Long) -> Unit,
-    parseMode: ParseMode? = null
-): Long {
-    return keyboard(chatId, messageId, bot, text,
-        { newMessageId -> numpadKeyboard(
-            title, numCommand, acceptCommand, cancelCommand, target, value, newMessageId
+    replyMarkup: (Long) -> ReplyMarkup? = { null },
+    text: String? = null
+) {
+    if (text == null) {
+        bot.editMessageReplyMarkup(
+            ChatId.fromId(chatId),
+            messageId,
+            replyMarkup = replyMarkup(messageId)
         )
-        },
-        shouldAttemptToMakeNewMessageId, resSuccess, parseMode
+    } else {
+        bot.editMessageText(
+            ChatId.fromId(chatId),
+            messageId,
+            text = text,
+            replyMarkup = replyMarkup(messageId)
+        )
+    }
+}
+
+fun editMessageInline(
+    bot: Bot,
+    chatId: Long,
+    messageId: Long,
+    definition: KeyboardContext.(Long) -> Unit,
+    text: String? = null
+) {
+    editMessage(
+        bot, chatId, messageId,
+        { msgId -> inlineKeyboard { definition(messageId) } },
+        text
     )
 }
 
-fun<T: Any> numpadKeyboard(
-    chatId: Long,
-    messageId: Long,
+fun sendMarkedUpMessage(
     bot: Bot,
-    text: String?,
-    title: String,
-    numCommand: Command,
-    acceptCommand: Command?,
-    cancelCommand: Command,
-    target: T,
-    value: Int,
+    chatId: Long,
+    text: String,
+    replyMarkup: (Long) -> ReplyMarkup,
+    resSuccess: (Long) -> Unit = {  },
     parseMode: ParseMode? = null
 ): Long {
-    return numpadKeyboard(
-        chatId, messageId, bot, text, title, numCommand, acceptCommand, cancelCommand, target, value,
-        { it }, {  },
+    return sendMessage(
+        bot, chatId, text,
+        {
+            resSuccess(it)
+            editMessage(bot, chatId, it, replyMarkup)
+        },
         parseMode
     )
 }
 
-fun<T: Any> numpadKeyboard(
+fun sendMessageInline(
+    bot: Bot,
+    chatId: Long,
+    text: String,
+    definition: KeyboardContext.(Long) -> Unit,
+    resSuccess: (Long) -> Unit = {  },
+    parseMode: ParseMode? = null
+): Long {
+    return sendMarkedUpMessage(
+        bot, chatId, text,
+        { inlineKeyboard { definition(it) } },
+        resSuccess, parseMode
+    )
+}
+
+fun<T: Any> editMessageNumpad(
+    bot: Bot,
     chatId: Long,
     messageId: Long,
-    bot: Bot,
     title: String,
     numCommand: Command,
     acceptCommand: Command?,
     cancelCommand: Command,
     target: T,
-    value: Int,
-    parseMode: ParseMode? = null
-): Long {
-    return numpadKeyboard(
-        chatId, messageId, bot, null, title, numCommand, acceptCommand, cancelCommand, target, value, parseMode
+    value: Int
+) {
+    editMessage(
+        bot, chatId, messageId,
+        {
+            numpadKeyboard(
+                title, numCommand, acceptCommand, cancelCommand, target, value, messageId
+            )
+        }
     )
 }
 
 internal fun showChosenSettingsMenu(chatId: Long, messageId: Long, bot: Bot, chosenId: Long) {
-    inlineKeyboard(chatId, messageId, bot, "Настройки ведущего", { newMessageId ->
-        hostSettings.get(chosenId)?.let { settings ->
-            button(blankCommand named "Настройки ${accounts.get(chosenId)?.fullName()?: ""}")
-            HostOptions.entries.forEach { entry ->
-                row {
-                    button(changeHostAdminSettingCommand named entry.shortName, newMessageId, chosenId, entry.name)
-                    button(changeHostAdminSettingCommand named (if (entry.current(settings)) "✅" else "❌"), newMessageId, chosenId, entry.name)
-                }
-            }
-            button(deleteMsgCommand named "Закрыть", newMessageId)
+    hostSettings.get(chosenId)?.let { settings ->
+        val msgId = if (messageId == -1L) {
+            sendMessage(bot, chatId, "Настройки ведущего")
+        } else {
+            messageId
         }
-    })
+        editMessageInline(
+            bot, chatId, msgId,
+            {
+                button(blankCommand named "Настройки ${accounts.get(chosenId)?.fullName() ?: ""}")
+                HostOptions.entries.forEach { entry ->
+                    row {
+                        button(changeHostAdminSettingCommand named entry.shortName, msgId, chosenId, entry.name)
+                        button(
+                            changeHostAdminSettingCommand named (if (entry.current(settings)) "✅" else "❌"),
+                            msgId,
+                            chosenId,
+                            entry.name
+                        )
+                    }
+                }
+                button(deleteMsgCommand named "Закрыть", msgId)
+            }
+        )
+    }
 }
 
 internal fun showHostSettings(chatId: Long, messageId: Long, bot: Bot, hostId: Long) {
-    inlineKeyboard(
-        chatId,
-        messageId,
+    val msgId = if (messageId == -1L) {
+        sendMessage(bot, chatId, "Настройки ведущего")
+    } else {
+        messageId
+    }
+    editMessageInline(
         bot,
-        "Настройки ведущего",
-        { newMessageId ->
+        chatId,
+        msgId,
+        { msgId ->
             hostInfos.get(hostId)?.let {
                 row {
                     button(blankCommand named "🎮 Лимит игр")
                     if (it.gameLimit) {
-                        button(gameLimitOnCommand named it.left.toString(), it.chatId, newMessageId)
-                        button(gameLimitOffCommand, it.chatId, newMessageId)
+                        button(gameLimitOnCommand named it.left.toString(), it.chatId, msgId)
+                        button(gameLimitOffCommand, it.chatId, msgId)
                     } else {
-                        button(gameLimitOnCommand, it.chatId, newMessageId)
+                        button(gameLimitOnCommand, it.chatId, msgId)
                     }
                 }
                 row {
                     button(blankCommand named "⏰ Срок ведения")
                     if (it.timeLimit) {
-                        button(timeLimitOnCommand named it.until.toString(), it.chatId, newMessageId)
-                        button(timeLimitOffCommand, it.chatId, newMessageId)
+                        button(timeLimitOnCommand named it.until.toString(), it.chatId, msgId)
+                        button(timeLimitOffCommand, it.chatId, msgId)
                     } else {
-                        button(timeLimitOnCommand, it.chatId, newMessageId)
+                        button(timeLimitOnCommand, it.chatId, msgId)
                     }
                 }
                 row {
                     button(blankCommand named "👥 Передавать ведение")
-                    button(shareCommand named if (it.canShare) "On" else "Off", it.chatId, newMessageId)
+                    button(shareCommand named if (it.canShare) "On" else "Off", it.chatId, msgId)
                 }
                 row {
                     button(blankCommand named "👇 Выбирать роли")
-                    button(canReassignCommand named if (it.canReassign) "On" else "Off", it.chatId, newMessageId)
+                    button(canReassignCommand named if (it.canReassign) "On" else "Off", it.chatId, msgId)
                 }
                 if (admins.get(it.chatId) == null) {
-                    button(promoteHostCommand, it.chatId, newMessageId)
+                    button(promoteHostCommand, it.chatId, msgId)
                 } else {
                     button(blankCommand named "⚛️ Администратор")
                 }
             }
-            button(deleteMsgCommand named "Закрыть", newMessageId)
+            button(deleteMsgCommand named "Закрыть", msgId)
         }
     )
 }
@@ -688,70 +659,86 @@ internal fun showNightRoleMenu(
     bot: Bot,
     messageId: Long
 ) {
+    val msgId = if (messageId == -1L) {
+        sendMessage(
+            bot,
+            chatId,
+            "Меню ночи:"
+        )
+    } else {
+        messageId
+    }
     val wake = if (town.night.size > town.index) town.night[town.index] else null
-    inlineKeyboard(
-        chatId,
-        messageId,
+    if (wake == null) {
+        editMessageInline(
+            bot,
+            chatId,
+            msgId,
+            { button(dayCommand, msgId) },
+            "Ночь завершена"
+        )
+        return
+    }
+    val text = nightRoleDesc(wake)
+    editMessageInline(
         bot,
-        if (wake == null) "Ночь завершена" else nightRoleDesc(wake),
-        { newMessageId ->
-            if (wake == null) {
-                button(dayCommand, newMessageId)
+        chatId,
+        msgId,
+        {
+            if (wake.players.none { it.alive }) {
+                row {
+                    if (town.actions.isNotEmpty()) {
+                        button(cancelActionCommand, msgId)
+                    }
+                    button(skipRoleCommand, msgId)
+                }
             } else {
-                if (wake.players.none { it.alive }) {
-                    row {
-                        if (town.actions.isNotEmpty()) {
-                            button(cancelActionCommand, newMessageId)
-                        }
-                        button(skipRoleCommand, newMessageId)
-                    }
-                } else {
-                    val players = town.players.filter { it.alive }.sortedBy { it.pos }
-                    val actor = wake.actor()
-                    val settings = accounts.get(chatId)?.settings
-                    fun KeyboardContext.RowContext.selectButton(it: Person) {
-                        button(
-                            selectCommand named ((if (it.pos in town.selections) "✅ " else "") + desc(it)),
-                            it.pos,
-                            newMessageId,
-                            actor?.roleData?.id ?: ""
-                        )
-                    }
-                    if (settings == null || settings.doubleColumnNight) {
-                        reordered(players).chunked(2).forEach { list ->
-                            row {
-                                list.forEach {
-                                    selectButton(it)
-                                }
-                                if (list.size == 1) {
-                                    button(blankCommand)
-                                }
-                            }
-                        }
-                    } else {
-                        players.forEach {
-                            row {
+                val players = town.players.filter { it.alive }.sortedBy { it.pos }
+                val actor = wake.actor()
+                val settings = accounts.get(chatId)?.settings
+                fun KeyboardContext.RowContext.selectButton(it: Person) {
+                    button(
+                        selectCommand named ((if (it.pos in town.selections) "✅ " else "") + desc(it)),
+                        it.pos,
+                        msgId,
+                        actor?.roleData?.id ?: ""
+                    )
+                }
+                if (settings == null || settings.doubleColumnNight) {
+                    reordered(players).chunked(2).forEach { list ->
+                        row {
+                            list.forEach {
                                 selectButton(it)
                             }
+                            if (list.size == 1) {
+                                button(blankCommand)
+                            }
                         }
                     }
-                    row {
-                        if (town.actions.isNotEmpty()) {
-                            button(cancelActionCommand, newMessageId)
-                        }
-                        if (town.selections.isEmpty()) {
-                            button(skipRoleCommand, newMessageId)
-                        } else if (settings?.confirmNightSelection == true && town.selections.size == wake.type.choice) {
-                            button(
-                                executeActionCommand,
-                                newMessageId,
-                                actor?.roleData?.id ?: ""
-                            )
+                } else {
+                    players.forEach {
+                        row {
+                            selectButton(it)
                         }
                     }
                 }
+                row {
+                    if (town.actions.isNotEmpty()) {
+                        button(cancelActionCommand, msgId)
+                    }
+                    if (town.selections.isEmpty()) {
+                        button(skipRoleCommand, msgId)
+                    } else if (settings?.confirmNightSelection == true && town.selections.size == wake.type.choice) {
+                        button(
+                            executeActionCommand,
+                            msgId,
+                            actor?.roleData?.id ?: ""
+                        )
+                    }
+                }
             }
-        }
+        },
+        text
     )
 }
 
@@ -767,21 +754,33 @@ internal fun showDayMenu(
         val view = settings?.dayView ?: DayView.ALL
         val fallMode = settings?.fallMode ?: false
 
-        inlineKeyboard(
-            chatId,
-            messageId,
+        val msgId = if (messageId == -1L) {
+            sendMessage(
+                bot, chatId, "Меню дня:",
+                { msgId ->
+                    accounts.update(chatId) {
+                        menuMessageId = msgId
+                    }
+                }
+            )
+        } else {
+            messageId
+        }
+
+        editMessageInline(
             bot,
-            "Меню дня:",
-            { newMessageId ->
+            chatId,
+            msgId,
+            {
                 if (settings?.hideDayPlayers == true) {
                     button(
                         hidePlayersCommand named (if (settings.playersHidden) "👓 Показать игроков" else hidePlayersCommand.name),
-                        newMessageId
+                        msgId
                     )
                 }
                 val hideRolesMode = getHideRolesMode(game)
                 if (settings?.playersHidden != true) {
-                    row { button(filterCommand named "Фильтр: ${view.desc}", newMessageId) }
+                    row { button(filterCommand named "Фильтр: ${view.desc}", msgId) }
                     for (player in town.players.sortedBy { it.pos }) {
                         if (view.filter(player)) {
                             row {
@@ -791,29 +790,23 @@ internal fun showDayMenu(
                                         hideRolesMode = hideRolesMode
                                     ),
                                     player.pos,
-                                    newMessageId
+                                    msgId
                                 )
                             }
                             if (settings?.detailedView == true) {
                                 row {
-                                    playerDayDesc(player, newMessageId, fallMode)
+                                    playerDayDesc(player, msgId, fallMode)
                                 }
                             }
                         }
                     }
                 }
-                button(settingsCommand, newMessageId)
+                button(settingsCommand, msgId)
                 if (settings?.timer == true) {
                     button(timerCommand)
                 }
                 if (!hideRolesMode) {
-                    button(nightCommand, newMessageId)
-                }
-            },
-            { it },
-            { newMessageId ->
-                accounts.update(chatId) {
-                    menuMessageId = newMessageId
+                    button(nightCommand, msgId)
                 }
             }
         )
@@ -850,15 +843,15 @@ internal fun showAliveMenu(
     } else {
         ""
     }
-    inlineKeyboard(
+    editMessageInline(
+        bot,
         con.playerId,
         messageId,
-        bot,
-        desc,
         {
             button(revealRoleCommand, roleId, messageId)
             button(gameInfoCommand, roleId, messageId)
-        }
+        },
+        desc
     )
     messageLinks.updateMany({
         this.messageId == messageId

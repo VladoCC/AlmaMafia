@@ -404,11 +404,11 @@ sealed interface CallContext {
     val bot: Bot
 
     fun sendClosable(text: String, definition: KeyboardContext.() -> Unit = {}): Long {
-        return inlineKeyboard(
-            chatId, bot, text,
-            { newMessageId ->
+        return sendMessageInline(
+            bot, chatId, text,
+            { msgId ->
                 definition()
-                button(deleteMsgCommand, newMessageId)
+                button(deleteMsgCommand, msgId)
             }
         )
     }
