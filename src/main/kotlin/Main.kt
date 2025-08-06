@@ -215,19 +215,23 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    sendMessageInline(
-        this,
-        chatId,
-        text,
-        { msgId -> button(deleteMsgCommand, msgId) }
-    )
+    val res = sendMessage(ChatId.fromId(chatId), text)
+    if (res.isSuccess) {
+        val msgId = res.get().messageId
+        updateMessage(
+            this,
+            chatId,
+            msgId,
+            inlineKeyboard { button(deleteMsgCommand, msgId) }
+        )
+    }
 }
 
 private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
 
 fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long, chatId: Long) {
     val id = ObjectId()
-    editMessage(
+    updateMessage(
         bot,
         chatId,
         messageId,
@@ -235,19 +239,23 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
     )
     val adList = ads.find()
     val messages = adList.map { message ->
-        sendMessageInline(
+        val msgId = sendMessage(
             bot,
             chatId,
-            message.text,
-            { button(adSelectCommand, message.id, id) }
+            message.text
         )
+        updateMessage(
+            bot, chatId, msgId,
+            inlineKeyboard { button(adSelectCommand, message.id, id) }
+        )
+        msgId
     }
     val lastId = messages.last()
-    editMessageInline(
+    updateMessage(
         bot,
         chatId,
         lastId,
-        {
+        inlineKeyboard {
             button(adSelectCommand, adList.last().id, id)
             button(adClearCommand, id)
         }
@@ -259,19 +267,19 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
 fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
     val host = game.hostId
     fun send(chatId: Long) {
-        sendMessage(
-            bot, chatId, ad.text,
-            { msgId ->
-                bombs.save(
-                    TimedMessage(
-                        ObjectId(),
-                        chatId,
-                        msgId,
-                        Date(System.currentTimeMillis() + 1000 * 60 * 60)
-                    )
-                )
-            }
+        val msgId = sendMessage(
+            bot, chatId, ad.text
         )
+        if (msgId != -1L) {
+            bombs.save(
+                TimedMessage(
+                    ObjectId(),
+                    chatId,
+                    msgId,
+                    Date(System.currentTimeMillis() + 1000 * 60 * 60)
+                )
+            )
+        }
     }
     send(host)
     connections.forEach {
@@ -302,11 +310,11 @@ internal fun updateSettingsView(
 fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long, bot: Bot) {
     town.playerMap[playerPos]?.let<Person, Unit> { player ->
         val fallMode = games.get(town.gameId)?.host?.settings?.fallMode ?: false
-        editMessageInline(
+        updateMessage(
             bot,
             chatId,
             messageId,
-            {
+            inlineKeyboard {
                 button(blankCommand named "Детали")
                 button(dayDetailsCommand named desc(
                     player,
@@ -341,11 +349,11 @@ private fun updateTimer(
     bot: Bot
 ) {
     val text = timerText(timer.time)
-    editMessageInline(
+    updateMessage(
         bot,
         timer.chatId,
         timer.messageId,
-        {
+        inlineKeyboard {
             button(blankCommand named text)
             row {
                 button(timerResetCommand, timer.chatId)
@@ -424,11 +432,11 @@ fun showAdmin(
     messageId: Long,
     bot: Bot
 ) {
-   editMessageInline(
+   updateMessage(
         bot,
         chatId,
         messageId,
-        {
+       inlineKeyboard {
             CheckOption.entries.forEach {
                 row {
                     button(blankCommand named it.display)
@@ -652,11 +660,11 @@ fun showRoles(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }
     val gameSetups = setups.find { gameId == game.id }
-    editMessageInline(
+    updateMessage(
         bot,
         chatId,
         messageId,
-        {
+        inlineKeyboard {
             gameSetups.sortedBy { it.index }.chunked(2).forEach {
                 val left = it[0]
                 val right = if (it.size > 1) it[1] else null
@@ -708,11 +716,11 @@ fun showPreview(
 ) {
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
-    editMessageInline(
+    updateMessage(
         bot,
         chatId,
         messageId,
-        {
+        inlineKeyboard {
             val hideRolesMode = getHideRolesMode(game)
             players.sortedBy { it.pos }.forEach {
                 val pair = pairs[it.id]
@@ -777,11 +785,11 @@ fun showGames(
         messageId
     }
     accounts.update(chatId) { menuMessageId = msgId }
-    editMessageInline(
+    updateMessage(
         bot,
         chatId,
         msgId,
-        { msgId ->
+        inlineKeyboard {
             games.find { actual }.forEach {
                 accounts.get(it.hostId)?.let { host ->
                     row {
