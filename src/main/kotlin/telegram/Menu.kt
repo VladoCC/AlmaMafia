@@ -21,27 +21,39 @@ fun getRecentGames(): List<GameSummary> {
     return gameHistory.find().sortedBy { it.playedAt }.reversed()
 }
 
-internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
+internal fun showAdMenu(
+    chatId: Long,
+    bot: Bot,
+    messageId: Long,
+    isAdminSubmenu: Boolean = false
+) {
     val active = getActiveGames()
     val recent = getRecentGames()
-    val msgId = sendMessage(
+    val text = if (active.isNotEmpty() || recent.isNotEmpty()) "Реклама" else "Нет доступных игр"
+    val msgId = if (messageId == -1L) {
+        sendMessage(
+            bot,
+            chatId,
+            text
+        )
+    } else {
+        messageId
+    }
+    updateMessage(
         bot,
-        chat.id,
-        if (active.isNotEmpty() || recent.isNotEmpty()) "Реклама" else "Нет доступных игр",
-        { msgId ->
-            updateMessage(
-                bot,
-                chat.id,
-                msgId,
-                replyMarkup = inlineKeyboard {
-                if (active.isNotEmpty()) {
-                    button(listActiveGamesCommand, msgId, 0)
-                }
-                if (recent.isNotEmpty()) {
-                    button(listRecentGamesCommand, msgId, 0)
-                }
-                button(deleteMsgCommand, msgId)
-            })
+        chatId,
+        msgId,
+        replyMarkup = inlineKeyboard {
+            if (msgId == messageId) {
+                button(blankCommand named text)
+            }
+            if (active.isNotEmpty()) {
+                button(listActiveGamesCommand, msgId, 0)
+            }
+            if (recent.isNotEmpty()) {
+                button(listRecentGamesCommand, msgId, 0)
+            }
+            button(deleteMsgCommand, msgId)
         }
     )
 }
@@ -62,7 +74,7 @@ internal fun <T: Any> selectGameForAdvertisement(
         "Доступные игры",
         list,
         { actionForEach(it) },
-        { button(deleteMsgCommand, it) },
+        { button(advertCommand named "◀️ Назад", it) },
         menuCommand,
         pageIndex
     )
@@ -451,14 +463,13 @@ fun sendMessage(
     bot: Bot,
     chatId: Long,
     text: String,
-    callback: (Long) -> Unit = {},
-    parseMode: ParseMode? = null,
-    replyMarkup: ReplyMarkup? = null
+    replyMarkup: ReplyMarkup? = null,
+    callback: (Long) -> Unit = {}
 ): Long {
     val res = bot.sendMessage(
         ChatId.fromId(chatId),
         text,
-        parseMode = parseMode,
+        parseMode = ParseMode.HTML,
         replyMarkup = replyMarkup
     )
     return if (res.isSuccess) {
@@ -468,6 +479,25 @@ fun sendMessage(
     } else {
         -1L
     }
+}
+
+fun sendMarkedUpMessage(
+    bot: Bot,
+    chatId: Long,
+    text: String,
+    replyMarkup: (Long) -> ReplyMarkup
+): Long {
+    return sendMessage(
+        bot,
+        chatId,
+        text,
+        inlineKeyboard {
+            button(blankCommand named "Загрузка...")
+        },
+        { msgId ->
+            updateMessage(bot, chatId, msgId, text, replyMarkup(msgId))
+        }
+    )
 }
 
 fun updateMessage(

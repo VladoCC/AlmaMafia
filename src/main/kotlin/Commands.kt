@@ -102,7 +102,7 @@ val hostSettingsCommand = command("Список ведущих", "hostSettings",
 val adminSettingsCommand = command("Список администраторов", "adminSettings", 2)
 val gamesSettingsCommand = command("Список игр", "gamesSettings", 2)
 val hostAdminSettingsCommand = command("Список настроек ведущих", "hostAdminSettings", 2)
-val advertCommand = command("Реклама", "advert", 0)
+val advertCommand = command("Реклама", "advert", 1)
 val listActiveGamesCommand = command("Активные", "listActiveGames", 2)
 val listRecentGamesCommand = command("Недавние", "listRecentGames", 2)
 

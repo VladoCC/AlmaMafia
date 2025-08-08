@@ -215,16 +215,14 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    val res = sendMessage(ChatId.fromId(chatId), text)
-    if (res.isSuccess) {
-        val msgId = res.get().messageId
-        updateMessage(
-            this,
-            chatId,
-            msgId,
-            replyMarkup = inlineKeyboard { button(deleteMsgCommand, msgId) }
-        )
-    }
+    sendMarkedUpMessage(
+        this,
+        chatId,
+        text,
+        { msgId ->
+            inlineKeyboard { button(deleteMsgCommand, msgId) }
+        }
+    )
 }
 
 private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
@@ -239,17 +237,12 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
     )
     val adList = ads.find()
     val messages = adList.map { message ->
-        sendMessage(
+        sendMarkedUpMessage(
             bot,
             chatId,
             message.text,
             { msgId ->
-                updateMessage(
-                    bot,
-                    chatId,
-                    msgId,
-                    replyMarkup = inlineKeyboard { button(adSelectCommand, message.id, id) }
-                )
+                inlineKeyboard { button(adSelectCommand, message.id, id) }
             }
         )
     }
@@ -274,7 +267,7 @@ fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
             bot,
             chatId,
             ad.text,
-            { msgId ->
+            callback = { msgId ->
                 bombs.save(
                     TimedMessage(
                         ObjectId(),
@@ -457,7 +450,7 @@ fun showAdmin(
             button(adminSettingsCommand, messageId, 0)
             button(gamesSettingsCommand, messageId, 0)
             button(hostAdminSettingsCommand, messageId, 0)
-            button(advertCommand)
+            button(advertCommand, messageId)
             button(deleteMsgCommand, messageId)
         }
     )

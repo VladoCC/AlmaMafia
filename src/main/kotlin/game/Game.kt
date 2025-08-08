@@ -260,7 +260,7 @@ internal fun setPlayerNum(
         bot,
         chatId,
         Const.Message.numSaved,
-        { msgId ->
+        callback = { msgId ->
             bombs.save(
                 TimedMessage(
                     ObjectId(),
@@ -590,35 +590,24 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
-                sendMessage(
+                sendMarkedUpMessage(
                     bot,
                     chatId,
                     "Ведущий начал игру",
                     { msgId ->
-                        updateMessage(
-                            bot,
-                            chatId,
-                            msgId,
-                            replyMarkup = inlineKeyboard { mafiaKeyboard(chatId) }
-                        )
+                        inlineKeyboard { mafiaKeyboard(chatId) }
                     }
                 )
-                sendMessage(
+                sendMarkedUpMessage(
                     bot,
                     chatId,
                     getRoleDesc(role),
                     { msgId ->
                         messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
-                        updateMessage(
-                            bot,
-                            chatId,
-                            msgId,
-                            replyMarkup = inlineKeyboard {
-                                button(gameInfoCommand, role.id, msgId)
-                            }
-                        )
-                    },
-                    ParseMode.HTML
+                        inlineKeyboard {
+                            button(gameInfoCommand, role.id, msgId)
+                        }
+                    }
                 )
             } catch (e: Exception) {
                 log.error("Unable to send player info message to $con, role: $role", e)
