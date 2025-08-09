@@ -2,7 +2,6 @@ package org.example.game
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
-import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
 import org.example.*
 import org.example.lua.BlockAction
@@ -260,7 +259,7 @@ internal fun setPlayerNum(
         bot,
         chatId,
         Const.Message.numSaved,
-        callback = { msgId ->
+        { msgId ->
             bombs.save(
                 TimedMessage(
                     ObjectId(),
@@ -269,6 +268,7 @@ internal fun setPlayerNum(
                     Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
                 )
             )
+            null
         }
     )
 }
@@ -590,7 +590,7 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
-                sendMarkedUpMessage(
+                sendMessage(
                     bot,
                     chatId,
                     "Ведущий начал игру",
@@ -598,7 +598,7 @@ internal fun sendPlayerInfo(
                         inlineKeyboard { mafiaKeyboard(chatId) }
                     }
                 )
-                sendMarkedUpMessage(
+                sendMessage(
                     bot,
                     chatId,
                     getRoleDesc(role),

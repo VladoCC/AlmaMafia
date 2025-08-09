@@ -11,7 +11,7 @@ import org.example.game.desc
 import org.example.game.nightRoleDesc
 import org.example.game.playerDayDesc
 
-const val defaultItemsPerPage: Int = 10
+const val defaultItemsPerPage: Int = 1
 
 fun getActiveGames(): List<Game> {
     return games.find().sortedBy { it.createdAt }.reversed()
@@ -24,8 +24,7 @@ fun getRecentGames(): List<GameSummary> {
 internal fun showAdMenu(
     chatId: Long,
     bot: Bot,
-    messageId: Long,
-    isAdminSubmenu: Boolean = false
+    messageId: Long
 ) {
     val active = getActiveGames()
     val recent = getRecentGames()
@@ -86,8 +85,12 @@ internal fun showActiveGamesMenu(
     bot: Bot,
     pageIndex: Int = 0
 ) {
+
     selectGameForAdvertisement(
-        chatId, messageId, bot, pageIndex,
+        chatId,
+        messageId,
+        bot,
+        pageIndex,
         listActiveGamesCommand,
         getActiveGames(),
         { button(sendAdCommand named it.name(), it.id, messageId) }
@@ -96,7 +99,10 @@ internal fun showActiveGamesMenu(
 
 internal fun showRecentGamesMenu(chatId: Long, messageId: Long, bot: Bot, pageIndex: Int = 0) {
     selectGameForAdvertisement(
-        chatId, messageId, bot, pageIndex,
+        chatId,
+        messageId,
+        bot,
+        pageIndex,
         listRecentGamesCommand,
         getRecentGames(),
         { button(sendAdHistoryCommand named it.name(), it.id, messageId) }
@@ -463,41 +469,25 @@ fun sendMessage(
     bot: Bot,
     chatId: Long,
     text: String,
-    replyMarkup: ReplyMarkup? = null,
-    callback: (Long) -> Unit = {}
+    replyMarkup: (Long) -> ReplyMarkup? = { null },
 ): Long {
     val res = bot.sendMessage(
         ChatId.fromId(chatId),
         text,
-        parseMode = ParseMode.HTML,
-        replyMarkup = replyMarkup
+        parseMode = ParseMode.HTML
     )
     return if (res.isSuccess) {
         val msgId = res.get().messageId
-        callback(msgId)
+        updateMessage(
+            bot,
+            chatId,
+            msgId,
+            replyMarkup = replyMarkup(msgId)
+        )
         msgId
     } else {
         -1L
     }
-}
-
-fun sendMarkedUpMessage(
-    bot: Bot,
-    chatId: Long,
-    text: String,
-    replyMarkup: (Long) -> ReplyMarkup
-): Long {
-    return sendMessage(
-        bot,
-        chatId,
-        text,
-        inlineKeyboard {
-            button(blankCommand named "Загрузка...")
-        },
-        { msgId ->
-            updateMessage(bot, chatId, msgId, text, replyMarkup(msgId))
-        }
-    )
 }
 
 fun updateMessage(
@@ -505,8 +495,7 @@ fun updateMessage(
     chatId: Long,
     messageId: Long,
     text: String? = null,
-    replyMarkup: ReplyMarkup = inlineKeyboard {  },
-    parseMode: ParseMode? = null
+    replyMarkup: ReplyMarkup? = inlineKeyboard {  }
 ) {
     if (text == null) {
         bot.editMessageReplyMarkup(
@@ -519,7 +508,7 @@ fun updateMessage(
             ChatId.fromId(chatId),
             messageId,
             text = text,
-            parseMode = parseMode,
+            parseMode = ParseMode.HTML,
             replyMarkup = replyMarkup
         )
     }

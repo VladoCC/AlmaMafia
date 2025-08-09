@@ -2,7 +2,6 @@ package org.example.telegram
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
-import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
 import org.example.*
 import org.example.Timer
@@ -112,7 +111,7 @@ object MafiaHandler {
         connections.find { playerId == chatId }.singleOrNull()?.let { con ->
             simple(leaveGameCommand, menuCommand, startCommand, leaveGameLegacyCommand) {
                 bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
-                sendMarkedUpMessage(
+                sendMessage(
                     bot,
                     chatId,
                     "Вы уверены, что хотите покинуть игру?",
@@ -130,7 +129,7 @@ object MafiaHandler {
             any {
                 games.get(con.gameId)?.let { game ->
                     if (game.state == GameState.Game) {
-                        sendMarkedUpMessage(
+                        sendMessage(
                             bot,
                             chatId,
                             "Игрок ${con.pos} - ${con.name()} пишет:\n" + query,
@@ -163,7 +162,7 @@ object MafiaHandler {
     private suspend fun ContainerBlock.BasicContext.hostCommands(account: Account) {
         simple(rehostCommand, restartGameCommand, hostCommand, restartGameLegacyCommand) {
             bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
-            sendMarkedUpMessage(
+            sendMessage(
                 bot,
                 chatId,
                 "Вы уверены, что хотите перезапустить игру?",
@@ -179,7 +178,7 @@ object MafiaHandler {
         }
         simple(stopGameCommand, menuCommand, stopGameLegacyCommand) {
             bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
-            sendMarkedUpMessage(
+            sendMessage(
                 bot,
                 chatId,
                 "Вы уверены, что хотите завершить игру?",
@@ -332,7 +331,7 @@ object MafiaHandler {
     private suspend fun ContainerBlock.BasicContext.initCommands() {
         any {
             val name = query.replace("\n", " ")
-            sendMarkedUpMessage(
+            sendMessage(
                 bot,
                 chatId,
                 "Введено имя: <b>$name</b>\nВы хотите его установить?",
@@ -355,7 +354,7 @@ object MafiaHandler {
                 showAdMenu(chatId, bot, -1L)
             }
             simple(adNewCommand) {
-                sendMarkedUpMessage(
+                sendMessage(
                     bot,
                     chatId,
                     Const.Message.enterAdText,
@@ -375,12 +374,8 @@ object MafiaHandler {
                     bot,
                     chatId,
                     "Меню администратора:",
-                    callback = { msgId ->
-                        showAdmin(
-                            chatId,
-                            msgId,
-                            bot
-                        )
+                    { msgId ->
+                        adminReplyMarkup(msgId)
                     }
                 )
             }
@@ -495,7 +490,7 @@ object MafiaHandler {
                             }
                         )
                         val spacedHostName = " " + (accounts.get(chatId)?.fullName() ?: " ") + ""
-                        sendMarkedUpMessage(
+                        sendMessage(
                             bot,
                             chatId,
                             "Ведущий${spacedHostName} предлагает вам стать новым ведущим игры.\nПринять?",
@@ -660,8 +655,9 @@ object MafiaHandler {
                     bot,
                     chatId,
                     "Введите срок действия разрешения в днях:",
-                    callback = { msgId ->
+                    { msgId ->
                         createAdminContext(msgId, AdminState.HOST_TIME)
+                        null
                     }
                 )
             }
@@ -674,8 +670,9 @@ object MafiaHandler {
                     bot,
                     chatId,
                     "Введите количество разрешенных игр:",
-                    callback = { msgId ->
+                    { msgId ->
                         createAdminContext(msgId, AdminState.HOST_GAMES)
+                        null
                     }
                 )
             }
@@ -701,7 +698,7 @@ object MafiaHandler {
             }
             parametrized(promoteHostCommand) {
                 accounts.get(long(0))?.let {
-                    sendMarkedUpMessage(
+                    sendMessage(
                         bot,
                         chatId,
                         "Вы уверены, что хотите сделать ${it.fullName()} администратором?",
@@ -766,7 +763,7 @@ object MafiaHandler {
             }
             parametrized(terminateGameCommand) {
                 games.get(id(0))?.let { game ->
-                    sendMarkedUpMessage(
+                    sendMessage(
                         bot,
                         chatId,
                         "Игра ${game.name()} будет завершена. Все игроки и ведущий отправлены в меню.\nВы уверены, что хотите завершить игру?",
@@ -868,7 +865,7 @@ object MafiaHandler {
                 }
             }
             parametrized(resetNumsCommand) {
-                sendMarkedUpMessage(
+                sendMessage(
                     bot,
                     chatId,
                     "Вы уверены, что хотите сбросить номера игроков?",
@@ -1232,7 +1229,7 @@ object MafiaHandler {
                                 con.player?.let { acc ->
                                     val chatId = con.playerId
                                     bot.deleteMessage(ChatId.fromId(chatId), acc.menuMessageId)
-                                    val msgId = sendMarkedUpMessage(
+                                    val msgId = sendMessage(
                                         bot,
                                         chatId,
                                         "Роли выданы",
@@ -1307,7 +1304,7 @@ object MafiaHandler {
                         bot,
                         chatId,
                         "Таймер:",
-                        callback = { msgId ->
+                        { msgId ->
                             timers.save(
                                 Timer(
                                     ObjectId(),
@@ -1318,6 +1315,7 @@ object MafiaHandler {
                                     0L
                                 )
                             )
+                            null
                         }
                     )
                 }
@@ -1617,7 +1615,7 @@ object MafiaHandler {
                             if (rehost.hostId == chatId) {
                                 game.host?.let { prevHost ->
                                     con.player?.let { newHost ->
-                                        sendMarkedUpMessage(
+                                        sendMessage(
                                             bot,
                                             chatId,
                                             "Игрок ${newHost.fullName()} отказался вести игру",
@@ -1658,8 +1656,7 @@ object MafiaHandler {
                                 inlineKeyboard {
                                     button(revealRoleCommand, id(0), long(1))
                                     button(aliveInfoCommand, id(0), long(1))
-                                },
-                                ParseMode.HTML
+                                }
                             )
                             messageLinks.updateMany({
                                 messageId == long(1)
@@ -1673,10 +1670,11 @@ object MafiaHandler {
                                 bot,
                                 chatId,
                                 desc,
-                                callback = { msgId ->
+                                { msgId ->
                                     if (checks.get(CheckOption.GAME_MESSAGES)) {
                                         messageLinks.save(MessageLink(ObjectId(), game.id, con.playerId, msgId))
                                     }
+                                    null
                                 }
                             )
                         }
@@ -1697,8 +1695,7 @@ object MafiaHandler {
                                         inlineKeyboard {
                                             button(gameInfoCommand, role.id, long(1))
                                             button(aliveInfoCommand, role.id, long(1))
-                                        },
-                                        ParseMode.HTML
+                                        }
                                     )
                                     messageLinks.updateMany({
                                         messageId == long(1)
@@ -1712,7 +1709,7 @@ object MafiaHandler {
                                        bot,
                                        chatId,
                                        desc,
-                                       callback = { msgId ->
+                                       { msgId ->
                                            if (checks.get(CheckOption.GAME_MESSAGES)) {
                                                messageLinks.save(
                                                    MessageLink(
@@ -1723,6 +1720,7 @@ object MafiaHandler {
                                                    )
                                                )
                                            }
+                                           null
                                        }
                                     )
                                     updateMessage(

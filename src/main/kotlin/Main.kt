@@ -215,7 +215,7 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    sendMarkedUpMessage(
+    sendMessage(
         this,
         chatId,
         text,
@@ -237,7 +237,7 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
     )
     val adList = ads.find()
     val messages = adList.map { message ->
-        sendMarkedUpMessage(
+        sendMessage(
             bot,
             chatId,
             message.text,
@@ -267,7 +267,7 @@ fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
             bot,
             chatId,
             ad.text,
-            callback = { msgId ->
+            { msgId ->
                 bombs.save(
                     TimedMessage(
                         ObjectId(),
@@ -276,6 +276,7 @@ fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
                         Date(System.currentTimeMillis() + 1000 * 60 * 60)
                     )
                 )
+                null
             }
         )
     }
@@ -434,26 +435,30 @@ fun showAdmin(
         bot,
         chatId,
         messageId,
-        replyMarkup = inlineKeyboard {
-            CheckOption.entries.forEach {
-                row {
-                    button(blankCommand named it.display)
-                    button(
-                        updateCheckCommand named (if (checks.get(it)) "✅" else "❌"),
-                        it.key,
-                        messageId
-                    )
-                }
-            }
-            button(hostRequestCommand, messageId, 0)
-            button(hostSettingsCommand, messageId, 0)
-            button(adminSettingsCommand, messageId, 0)
-            button(gamesSettingsCommand, messageId, 0)
-            button(hostAdminSettingsCommand, messageId, 0)
-            button(advertCommand, messageId)
-            button(deleteMsgCommand, messageId)
-        }
+        replyMarkup = adminReplyMarkup(messageId)
     )
+}
+
+fun adminReplyMarkup(messageId: Long): ReplyMarkup {
+    return inlineKeyboard {
+        CheckOption.entries.forEach {
+            row {
+                button(blankCommand named it.display)
+                button(
+                    updateCheckCommand named (if (checks.get(it)) "✅" else "❌"),
+                    it.key,
+                    messageId
+                )
+            }
+        }
+        button(hostRequestCommand, messageId, 0)
+        button(hostSettingsCommand, messageId, 0)
+        button(adminSettingsCommand, messageId, 0)
+        button(gamesSettingsCommand, messageId, 0)
+        button(hostAdminSettingsCommand, messageId, 0)
+        button(advertCommand, messageId)
+        button(deleteMsgCommand, messageId)
+    }
 }
 
 fun updateCheck(

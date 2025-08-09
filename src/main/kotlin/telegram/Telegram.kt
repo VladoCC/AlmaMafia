@@ -404,7 +404,7 @@ sealed interface CallContext {
     val bot: Bot
 
     fun sendClosable(text: String, definition: KeyboardContext.() -> Unit = {}): Long {
-        return sendMarkedUpMessage(
+        return sendMessage(
             bot,
             chatId,
             text,
