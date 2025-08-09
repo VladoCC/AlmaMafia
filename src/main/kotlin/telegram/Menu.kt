@@ -11,7 +11,7 @@ import org.example.game.desc
 import org.example.game.nightRoleDesc
 import org.example.game.playerDayDesc
 
-const val defaultItemsPerPage: Int = 1
+const val defaultItemsPerPage: Int = 10
 
 fun getActiveGames(): List<Game> {
     return games.find().sortedBy { it.createdAt }.reversed()
