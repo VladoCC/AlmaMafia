@@ -3,7 +3,6 @@ package org.example.telegram
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.dispatcher.handlers.CallbackQueryHandlerEnvironment
 import com.github.kotlintelegrambot.dispatcher.handlers.TextHandlerEnvironment
-import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.HideKeyboardReplyMarkup
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.KeyboardReplyMarkup
@@ -405,23 +404,17 @@ sealed interface CallContext {
     val bot: Bot
 
     fun sendClosable(text: String, definition: KeyboardContext.() -> Unit = {}): Long {
-        val chat = ChatId.fromId(chatId)
-        val res = bot.sendMessage(
-            chat,
-            text
-        )
-        if (res.isSuccess) {
-            bot.editMessageReplyMarkup(
-                chat,
-                res.get().messageId,
-                replyMarkup = inlineKeyboard {
+        return sendMessage(
+            bot,
+            chatId,
+            text,
+            { msgId ->
+                 inlineKeyboard {
                     definition()
-                    button(deleteMsgCommand, res.get().messageId)
+                    button(deleteMsgCommand, msgId)
                 }
-            )
-            return res.get().messageId
-        }
-        return -1L
+            }
+        )
     }
 }
 

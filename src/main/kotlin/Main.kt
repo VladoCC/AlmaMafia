@@ -215,45 +215,41 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    val chat = ChatId.fromId(chatId)
-    val res = sendMessage(
-        chat,
-        text
+    sendMessage(
+        this,
+        chatId,
+        text,
+        { msgId ->
+            inlineKeyboard { button(deleteMsgCommand, msgId) }
+        }
     )
-    if (res.isSuccess) {
-        editMessageReplyMarkup(
-            chat,
-            res.get().messageId,
-            replyMarkup = inlineKeyboard {
-                button(deleteMsgCommand, res.get().messageId)
-            }
-        )
-    }
 }
 
 private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
 
 fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long, chatId: Long) {
     val id = ObjectId()
-    val chat = ChatId.fromId(chatId)
-    bot.editMessageText(
-        chat,
+    updateMessage(
+        bot,
+        chatId,
         messageId,
         text = "Возможные сообщения:"
     )
     val adList = ads.find()
-    val messages = adList.map {
-        bot.sendMessage(
-            chat,
-            it.text,
-            replyMarkup = inlineKeyboard {
-                button(adSelectCommand, it.id, id)
+    val messages = adList.map { message ->
+        sendMessage(
+            bot,
+            chatId,
+            message.text,
+            { msgId ->
+                inlineKeyboard { button(adSelectCommand, message.id, id) }
             }
-        ).get().messageId
+        )
     }
     val lastId = messages.last()
-    bot.editMessageReplyMarkup(
-        chat,
+    updateMessage(
+        bot,
+        chatId,
         lastId,
         replyMarkup = inlineKeyboard {
             button(adSelectCommand, adList.last().id, id)
@@ -267,20 +263,22 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
 fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
     val host = game.hostId
     fun send(chatId: Long) {
-        val res = bot.sendMessage(
-            ChatId.fromId(chatId),
-            ad.text
-        )
-        if (res.isSuccess) {
-            bombs.save(
-                TimedMessage(
-                    ObjectId(),
-                    chatId,
-                    res.get().messageId,
-                    Date(System.currentTimeMillis() + 1000 * 60 * 60)
+        sendMessage(
+            bot,
+            chatId,
+            ad.text,
+            { msgId ->
+                bombs.save(
+                    TimedMessage(
+                        ObjectId(),
+                        chatId,
+                        msgId,
+                        Date(System.currentTimeMillis() + 1000 * 60 * 60)
+                    )
                 )
-            )
-        }
+                null
+            }
+        )
     }
     send(host)
     connections.forEach {
@@ -311,8 +309,9 @@ internal fun updateSettingsView(
 fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long, bot: Bot) {
     town.playerMap[playerPos]?.let<Person, Unit> { player ->
         val fallMode = games.get(town.gameId)?.host?.settings?.fallMode ?: false
-        bot.editMessageReplyMarkup(
-            ChatId.fromId(chatId),
+        updateMessage(
+            bot,
+            chatId,
             messageId,
             replyMarkup = inlineKeyboard {
                 button(blankCommand named "Детали")
@@ -349,8 +348,9 @@ private fun updateTimer(
     bot: Bot
 ) {
     val text = timerText(timer.time)
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(timer.chatId),
+    updateMessage(
+        bot,
+        timer.chatId,
         timer.messageId,
         replyMarkup = inlineKeyboard {
             button(blankCommand named text)
@@ -378,78 +378,51 @@ private fun timerText(time: Long): String {
 fun showHostSettings(
     messageId: Long,
     chatId: Long,
-    bot: Bot
+    bot: Bot,
+    pageIndex: Int = 0
 ) {
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
+    showPaginatedAdminSubmenu(
+        chatId,
         messageId,
-        replyMarkup = inlineKeyboard {
-            button(blankCommand named "Список ведущих")
-            hostInfos.find().forEach {
-                accounts.get(it.chatId)?.let { acc ->
-                    row {
-                        button(blankCommand named ("👤 " + acc.fullName()))
-                    }
-                    row {
-                        button(blankCommand named "🎮 Лимит игр")
-                        if (it.gameLimit) {
-                            button(gameLimitOnCommand named it.left.toString(), it.chatId, messageId)
-                            button(gameLimitOffCommand, it.chatId, messageId)
-                        } else {
-                            button(gameLimitOnCommand, it.chatId, messageId)
-                        }
-                    }
-                    row {
-                        button(blankCommand named "⏰ Срок ведения")
-                        if (it.timeLimit) {
-                            button(timeLimitOnCommand named it.until.toString(), it.chatId, messageId)
-                            button(timeLimitOffCommand, it.chatId, messageId)
-                        } else {
-                            button(timeLimitOnCommand, it.chatId, messageId)
-                        }
-                    }
-                    row {
-                        button(blankCommand named "👥 Передавать ведение")
-                        button(shareCommand named if (it.canShare) "On" else "Off", it.chatId, messageId)
-                    }
-                    row {
-                        button(blankCommand named "👇 Выбирать роли")
-                        button(canReassignCommand named if (it.canReassign) "On" else "Off", it.chatId, messageId)
-                    }
-                    if (admins.get(it.chatId) == null) {
-                        button(promoteHostCommand, it.chatId, messageId)
-                    } else {
-                        button(blankCommand named "⚛️ Администратор")
-                    }
-                    button(deleteHostCommand, it.chatId, messageId)
+        bot,
+        "Список ведущих",
+        hostInfos,
+        {
+            accounts.get(it.chatId)?.let { acc ->
+                row {
+                    button(chooseHostSettingsCommand named ("👤 " + acc.fullName()), -1L, it.chatId)
+                    button(deleteHostCommand, it.chatId, messageId, pageIndex)
                 }
             }
-            button(adminBackCommand, messageId)
-        }
+        },
+        hostSettingsCommand,
+        pageIndex
     )
 }
 
 fun showHostRequests(
     messageId: Long,
     chatId: Long,
-    bot: Bot
+    bot: Bot,
+    pageIndex: Int = 0
 ) {
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
+    showPaginatedAdminSubmenu(
+        chatId,
         messageId,
-        replyMarkup = inlineKeyboard {
-            button(blankCommand named "Запросы на ведение")
-            hostRequests.find().forEach {
-                accounts.get(it.chatId)?.let { acc ->
-                    button(blankCommand named acc.fullName())
-                    row {
-                        button(allowHostCommand, it.chatId, messageId)
-                        button(denyHostCommand, it.chatId, messageId)
-                    }
+        bot,
+        "Запросы на ведение",
+        hostRequests,
+        {
+            accounts.get(it.chatId)?.let { acc ->
+                button(blankCommand named acc.fullName())
+                row {
+                    button(allowHostCommand, it.chatId, messageId)
+                    button(denyHostCommand, it.chatId, messageId)
                 }
             }
-            button(adminBackCommand, messageId)
-        }
+        },
+        hostRequestCommand,
+        pageIndex
     )
 }
 
@@ -458,29 +431,34 @@ fun showAdmin(
     messageId: Long,
     bot: Bot
 ) {
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
+    updateMessage(
+        bot,
+        chatId,
         messageId,
-        replyMarkup = inlineKeyboard {
-            CheckOption.entries.forEach {
-                row {
-                    button(blankCommand named it.display)
-                    button(
-                        updateCheckCommand named (if (checks.get(it)) "✅" else "❌"),
-                        it.key,
-                        messageId
-                    )
-                }
-            }
-            button(hostRequestCommand, messageId)
-            button(hostSettingsCommand, messageId)
-            button(adminSettingsCommand, messageId)
-            button(gamesSettingsCommand, messageId)
-            button(hostAdminSettingsCommand, messageId)
-            button(advertCommand)
-            button(deleteMsgCommand, messageId)
-        }
+        replyMarkup = adminReplyMarkup(messageId)
     )
+}
+
+fun adminReplyMarkup(messageId: Long): ReplyMarkup {
+    return inlineKeyboard {
+        CheckOption.entries.forEach {
+            row {
+                button(blankCommand named it.display)
+                button(
+                    updateCheckCommand named (if (checks.get(it)) "✅" else "❌"),
+                    it.key,
+                    messageId
+                )
+            }
+        }
+        button(hostRequestCommand, messageId, 0)
+        button(hostSettingsCommand, messageId, 0)
+        button(adminSettingsCommand, messageId, 0)
+        button(gamesSettingsCommand, messageId, 0)
+        button(hostAdminSettingsCommand, messageId, 0)
+        button(advertCommand, messageId)
+        button(deleteMsgCommand, messageId)
+    }
 }
 
 fun updateCheck(
@@ -685,51 +663,51 @@ fun showRoles(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }
     val gameSetups = setups.find { gameId == game.id }
-    val keyboard = inlineKeyboard {
-        gameSetups.sortedBy { it.index }.chunked(2).forEach {
-            val left = it[0]
-            val right = if (it.size > 1) it[1] else null
-            row {
-                button(roleCommand named left.role!!.displayName, left.roleId, messageId)
-                if (right != null) {
-                    button(roleCommand named right.role!!.displayName, right.roleId, messageId)
-                } else {
-                    button(blankCommand)
-                }
-            }
-            row {
-                button(decrCommand, left.id, messageId)
-                button(blankCommand named left.count.toString())
-                button(incrCommand, left.id, messageId)
-                if (right != null) {
-                    button(decrCommand, right.id, messageId)
-                    button(blankCommand named right.count.toString())
-                    button(incrCommand, right.id, messageId)
-                } else {
-                    button(blankCommand)
-                    button(blankCommand)
-                    button(blankCommand)
-                }
-            }
-        }
-        row {
-            button(command("Игроков: ${players.size}", "default"))
-        }
-        row {
-            button(blankCommand named "♦️️: ${gameSetups.filter { it.role?.defaultTeam == "city" }.sumOf { it.count }}")
-            button(blankCommand named "Выбрано: ${gameSetups.sumOf { it.count }}")
-            button(blankCommand named "♣️: ${gameSetups.filter { it.role?.defaultTeam != "city" }.sumOf { it.count }}")
-        }
-        button(resetRolesCommand, game.id, messageId)
-        row {
-            button(menuLobbyCommand, messageId)
-            button(previewCommand, game.id, messageId)
-        }
-    }
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
+    updateMessage(
+        bot,
+        chatId,
         messageId,
-        replyMarkup = keyboard
+        replyMarkup = inlineKeyboard {
+            gameSetups.sortedBy { it.index }.chunked(2).forEach {
+                val left = it[0]
+                val right = if (it.size > 1) it[1] else null
+                row {
+                    button(roleCommand named left.role!!.displayName, left.roleId, messageId)
+                    if (right != null) {
+                        button(roleCommand named right.role!!.displayName, right.roleId, messageId)
+                    } else {
+                        button(blankCommand)
+                    }
+                }
+                row {
+                    button(decrCommand, left.id, messageId)
+                    button(blankCommand named left.count.toString())
+                    button(incrCommand, left.id, messageId)
+                    if (right != null) {
+                        button(decrCommand, right.id, messageId)
+                        button(blankCommand named right.count.toString())
+                        button(incrCommand, right.id, messageId)
+                    } else {
+                        button(blankCommand)
+                        button(blankCommand)
+                        button(blankCommand)
+                    }
+                }
+            }
+            row {
+                button(command("Игроков: ${players.size}", "default"))
+            }
+            row {
+                button(blankCommand named "♦️️: ${gameSetups.filter { it.role?.defaultTeam == "city" }.sumOf { it.count }}")
+                button(blankCommand named "Выбрано: ${gameSetups.sumOf { it.count }}")
+                button(blankCommand named "♣️: ${gameSetups.filter { it.role?.defaultTeam != "city" }.sumOf { it.count }}")
+            }
+            button(resetRolesCommand, game.id, messageId)
+            row {
+                button(menuLobbyCommand, messageId)
+                button(previewCommand, game.id, messageId)
+            }
+        }
     )
 }
 
@@ -741,54 +719,54 @@ fun showPreview(
 ) {
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
-    val keyboard = inlineKeyboard {
-        val hideRolesMode = getHideRolesMode(game)
-        players.sortedBy { it.pos }.forEach {
-            val pair = pairs[it.id]
-            row {
-                button(
-                    if (it.pos == Int.MAX_VALUE) positionCommand
-                    else (positionCommand named it.pos.toString()),
-                    it.id,
-                    0,
-                    messageId
-                )
-                button(detailsCommand named it.name(), it.id, messageId)
-                val roleName = pair?.roleId?.let { id ->
-                    if (hideRolesMode) {
-                        "👌 Роль выдана"
+    updateMessage(
+        bot,
+        chatId,
+        messageId,
+        replyMarkup = inlineKeyboard {
+            val hideRolesMode = getHideRolesMode(game)
+            players.sortedBy { it.pos }.forEach {
+                val pair = pairs[it.id]
+                row {
+                    button(
+                        if (it.pos == Int.MAX_VALUE) positionCommand
+                        else (positionCommand named it.pos.toString()),
+                        it.id,
+                        0,
+                        messageId
+                    )
+                    button(detailsCommand named it.name(), it.id, messageId)
+                    val roleName = pair?.roleId?.let { id ->
+                        if (hideRolesMode) {
+                            "👌 Роль выдана"
+                        } else {
+                            roles.get(id)?.displayName
+                        }
+                    } ?: "❗ Роль не выдана"
+                    if (game.host?.hostInfo?.canReassign == true) {
+                        button(reassignRoleCommand named roleName, messageId, it.id)
                     } else {
-                        roles.get(id)?.displayName
+                        button(blankCommand named roleName)
                     }
-                } ?: "❗ Роль не выдана"
-                if (game.host?.hostInfo?.canReassign == true) {
-                    button(reassignRoleCommand named roleName, messageId, it.id)
-                } else {
-                    button(blankCommand named roleName)
                 }
             }
+            row {
+                button(command("Игроков: ${players.size}", "default"))
+            }
+            row {
+                button(blankCommand named "Распределено ролей: ${pairs.size}")
+            }
+            button(
+                toggleHideRolesModePreviewCommand named
+                        if (hideRolesMode) "👓 Показывать роли" else "🕶️ Скрывать роли",
+                messageId
+            )
+            button(previewCommand named "🔄 Перераздать", chatId, messageId)
+            row {
+                button(menuRolesCommand named "◀️ Меню ролей", messageId)
+                button(gameCommand, game.id, messageId)
+            }
         }
-        row {
-            button(command("Игроков: ${players.size}", "default"))
-        }
-        row {
-            button(blankCommand named "Распределено ролей: ${pairs.size}")
-        }
-        button(
-            toggleHideRolesModePreviewCommand named
-                    if (hideRolesMode) "👓 Показывать роли" else "🕶️ Скрывать роли",
-            messageId
-        )
-        button(previewCommand named "🔄 Перераздать", chatId, messageId)
-        row {
-            button(menuRolesCommand named "◀️ Меню ролей", messageId)
-            button(gameCommand, game.id, messageId)
-        }
-    }
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
-        messageId,
-        replyMarkup = keyboard
     )
 }
 
@@ -798,92 +776,35 @@ fun withAccount(chatId: Long, func: (Account) -> Unit) {
     }
 }
 
-fun menuButtons(
-    messageId: Long
-): InlineKeyboardMarkup {
-    return inlineKeyboard {
-        games.find { actual }.forEach {
-            accounts.get(it.hostId)?.let { host ->
-                row {
-                    button(joinCommand named (if (it.state in inGameStates) "🎮" else "👥") + host.fullName(), it.id, messageId)
-                }
-            }
-        }
-        row { button(updateCommand, messageId) }
-    }
-}
-
-fun lobby(messageId: Long, game: Game): InlineKeyboardMarkup {
-    val players = connections.find { gameId == game.id }
-    return inlineKeyboard {
-        val playerList = players.sortedWith(compareBy({ it.pos }, { it.createdAt }))
-        val ordered = reordered(playerList)
-        ordered.chunked(2).forEach {
-            val first = it[0]
-            row {
-                button(detailsCommand named first.name(), first.id, messageId)
-                button(
-                    if (first.pos == Int.MAX_VALUE || first.pos < 1)
-                        positionCommand
-                    else positionCommand named first.pos.toString(),
-                    first.id,
-                    0,
-                    messageId
-                )
-                if (it.size > 1) {
-                    val second = it[1]
-                    button(detailsCommand named second.name(), second.id, messageId)
-                    button(
-                        if (second.pos == Int.MAX_VALUE || first.pos < 1)
-                            positionCommand
-                        else positionCommand named second.pos.toString(),
-                        second.id,
-                        0,
-                        messageId
-                    )
-                } else {
-                    button(blankCommand)
-                    button(blankCommand)
-                }
-            }
-        }
-        row {
-            button(command("Игроков: ${players.size}", "default"))
-        }
-        row { button(dummyCommand, messageId) }
-        row { button(menuKickCommand, messageId) }
-        //row { button(resetNumsCommand, messageId) }
-        if (game.creator?.hostInfo?.canShare == true) {
-            button(changeHostCommand, messageId)
-        }
-        button(menuRolesCommand, messageId)
-    }
-}
-
 fun showGames(
     chatId: Long,
     messageId: Long,
     bot: Bot,
     forceUpdate: Boolean = false
 ) {
-    var message = messageId
-    val chat = ChatId.fromId(chatId)
-    if (message == -1L || forceUpdate) {
-        val answer = bot.sendMessage(
-            chat,
-            "Доступные игры (нажмите на игру чтобы присоединиться):",
-        )
-        if (answer.isSuccess) {
-            message = answer.get().messageId
+    val msgId = if (messageId == -1L || forceUpdate) {
+        sendMessage(bot, chatId, "Доступные игры (нажмите на игру чтобы присоединиться):")
+    } else {
+        messageId
+    }
+    accounts.update(chatId) { menuMessageId = msgId }
+    updateMessage(
+        bot,
+        chatId,
+        msgId,
+        replyMarkup = inlineKeyboard {
+            games.find { actual }.forEach {
+                accounts.get(it.hostId)?.let { host ->
+                    row {
+                        button(
+                            joinCommand named (if (it.state in inGameStates) "🎮" else "👥") + host.fullName(),
+                            it.id, msgId
+                        )
+                    }
+                }
+            }
+            row { button(updateCommand, msgId) }
         }
-    }
-    accounts.update(chatId) {
-        menuMessageId = message
-    }
-    bot.editMessageReplyMarkup(
-        chat,
-        message,
-        replyMarkup = menuButtons(message)
     )
 }
 

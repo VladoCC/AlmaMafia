@@ -2,7 +2,6 @@ package org.example.game
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
-import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
 import org.example.*
 import org.example.lua.BlockAction
@@ -256,20 +255,22 @@ internal fun setPlayerNum(
             Date(System.currentTimeMillis() + sendPendingAfterSec * 1000)
         )
     )
-    val res = bot.sendMessage(
-        ChatId.fromId(chatId),
-        Const.Message.numSaved
-    )
-    if (res.isSuccess) {
-        bombs.save(
-            TimedMessage(
-                ObjectId(),
-                chatId,
-                res.get().messageId,
-                Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
+    sendMessage(
+        bot,
+        chatId,
+        Const.Message.numSaved,
+        { msgId ->
+            bombs.save(
+                TimedMessage(
+                    ObjectId(),
+                    chatId,
+                    msgId,
+                    Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
+                )
             )
-        )
-    }
+            null
+        }
+    )
 }
 
 internal fun joinGame(
@@ -470,11 +471,12 @@ internal fun executeNightAction(
                     return@map text
                 }.filterNotNull().joinToString("\n")
                 town.index++
-                bot.editMessageText(
-                    ChatId.fromId(chatId),
+                updateMessage(
+                    bot,
+                    chatId,
                     messageId,
-                    text = if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
-                    replyMarkup = inlineKeyboard {
+                    if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
+                    inlineKeyboard {
                         row {
                             button(cancelActionCommand, messageId)
                             if (town.index >= town.night.size) {
@@ -588,28 +590,25 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
-                val chat = ChatId.fromId(con.playerId)
-                bot.sendMessage(
-                    chat,
+                sendMessage(
+                    bot,
+                    chatId,
                     "Ведущий начал игру",
-                    replyMarkup = mafiaKeyboard(chatId)
+                    { msgId ->
+                        inlineKeyboard { mafiaKeyboard(chatId) }
+                    }
                 )
-                val res = bot.sendMessage(
-                    chat,
+                sendMessage(
+                    bot,
+                    chatId,
                     getRoleDesc(role),
-                    parseMode = ParseMode.HTML,
-                )
-                if (res.isSuccess) {
-                    val msgId = res.get().messageId
-                    bot.editMessageReplyMarkup(
-                        chat,
-                        msgId,
-                        replyMarkup = inlineKeyboard {
+                    { msgId ->
+                        messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
+                        inlineKeyboard {
                             button(gameInfoCommand, role.id, msgId)
                         }
-                    )
-                    messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
-                }
+                    }
+                )
             } catch (e: Exception) {
                 log.error("Unable to send player info message to $con, role: $role", e)
             }
