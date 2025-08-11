@@ -1,10 +1,8 @@
 package org.example.game
 
 import com.github.kotlintelegrambot.Bot
-import com.github.kotlintelegrambot.entities.ChatId
 import org.example.*
 import org.example.lua.*
-import org.example.telegram.sendMessage
 import org.example.telegram.showDayMenu
 
 data class Town(
@@ -378,15 +376,13 @@ data class Town(
         endNight()
         val fullLog = fullLog(this)
         if (fullLog.isNotBlank()) {
-            sendMessage(
-                bot,
+            bot.sendMessage(
                 chatId,
                 "Все события:\n${fullLog}"
             )
         }
 
-        sendMessage(
-            bot,
+        bot.sendMessage(
             chatId,
             "Результат ночи:\n" + shortLog(this).ifBlank { "Не произошло никаких событий" }
         )
@@ -414,9 +410,8 @@ data class Town(
                 }
             }
         }
-
-        sendMessage(
-            bot,
+        
+        bot.sendMessage(
             chatId,
             "День ${towns[game.id]?.day}\n" +
                     "Вживых:\n" + teamSet.joinToString("\n") {

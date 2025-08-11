@@ -255,22 +255,19 @@ internal fun setPlayerNum(
             Date(System.currentTimeMillis() + sendPendingAfterSec * 1000)
         )
     )
-    sendMessage(
-        bot,
+    bot.sendMessage(
         chatId,
-        Const.Message.numSaved,
-        { msgId ->
-            bombs.save(
-                TimedMessage(
-                    ObjectId(),
-                    chatId,
-                    msgId,
-                    Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
-                )
+        Const.Message.numSaved
+    ) { msgId ->
+        bombs.save(
+            TimedMessage(
+                ObjectId(),
+                chatId,
+                msgId,
+                Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
             )
-            null
-        }
-    )
+        )
+    }
 }
 
 internal fun joinGame(
@@ -471,8 +468,7 @@ internal fun executeNightAction(
                     return@map text
                 }.filterNotNull().joinToString("\n")
                 town.index++
-                updateMessage(
-                    bot,
+                bot.updateMessage(
                     chatId,
                     messageId,
                     if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
@@ -590,25 +586,21 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
-                sendMessage(
-                    bot,
+                bot.sendMessageWithMarkup(
                     chatId,
-                    "Ведущий начал игру",
-                    { msgId ->
-                        inlineKeyboard { mafiaKeyboard(chatId) }
-                    }
-                )
-                sendMessage(
-                    bot,
+                    "Ведущий начал игру"
+                ) { msgId ->
+                    inlineKeyboard { mafiaKeyboard(chatId) }
+                }
+                bot.sendMessageWithMarkup(
                     chatId,
-                    getRoleDesc(role),
-                    { msgId ->
-                        messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
-                        inlineKeyboard {
-                            button(gameInfoCommand, role.id, msgId)
-                        }
+                    getRoleDesc(role)
+                ) { msgId ->
+                    messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
+                    inlineKeyboard {
+                        button(gameInfoCommand, role.id, msgId)
                     }
-                )
+                }
             } catch (e: Exception) {
                 log.error("Unable to send player info message to $con, role: $role", e)
             }

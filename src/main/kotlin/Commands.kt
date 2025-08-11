@@ -103,8 +103,6 @@ val adminSettingsCommand = command("Список администраторов"
 val gamesSettingsCommand = command("Список игр", "gamesSettings", 2)
 val hostAdminSettingsCommand = command("Список настроек ведущих", "hostAdminSettings", 2)
 val advertCommand = command("Реклама", "advert", 1)
-val listActiveGamesCommand = command("Активные", "listActiveGames", 2)
-val listRecentGamesCommand = command("Недавние", "listRecentGames", 2)
 
 val timeLimitOnCommand = command("Off", "timeLimitOn", 2)
 val timeLimitOffCommand = command("❌", "timeLimitOff", 2)
