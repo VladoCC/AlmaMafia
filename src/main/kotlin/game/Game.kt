@@ -17,12 +17,11 @@ import java.util.*
 internal fun initGame(game: Game?, path: String, chatId: Long, messageId: Long, bot: Bot) {
     if (game != null) {
         updateSetup(path, game)
-        val chat = ChatId.fromId(chatId)
         accounts.update(chatId) {
             state = AccountState.Host
         }
         bot.sendMessage(
-            chat,
+            ChatId.fromId(chatId),
             "Игра создана. Ожидайте присоединения игроков.",
             replyMarkup = mafiaKeyboard(chatId)
         )
@@ -255,10 +254,10 @@ internal fun setPlayerNum(
             Date(System.currentTimeMillis() + sendPendingAfterSec * 1000)
         )
     )
-    bot.sendMessage(
+    bot.sendmessage(
         chatId,
         Const.Message.numSaved
-    ) { msgId ->
+    ).callback{ msgId ->
         bombs.save(
             TimedMessage(
                 ObjectId(),
@@ -468,11 +467,11 @@ internal fun executeNightAction(
                     return@map text
                 }.filterNotNull().joinToString("\n")
                 town.index++
-                bot.updateMessage(
-                    chatId,
+                bot.editMessageText(
+                    ChatId.fromId(chatId),
                     messageId,
-                    if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
-                    inlineKeyboard {
+                    text = if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
+                    replyMarkup = inlineKeyboard {
                         row {
                             button(cancelActionCommand, messageId)
                             if (town.index >= town.night.size) {
@@ -586,20 +585,18 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
-                bot.sendMessageWithMarkup(
-                    chatId,
-                    "Ведущий начал игру"
-                ) { msgId ->
-                    inlineKeyboard { mafiaKeyboard(chatId) }
-                }
-                bot.sendMessageWithMarkup(
+                bot.sendMessage(
+                    ChatId.fromId(chatId),
+                    "Ведущий начал игру",
+                    replyMarkup = mafiaKeyboard(chatId)
+                )
+                bot.sendmessage(
                     chatId,
                     getRoleDesc(role)
-                ) { msgId ->
+                ).inlinekeyboard { msgId ->
+                    button(gameInfoCommand, role.id, msgId)
+                }.callback { msgId ->
                     messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
-                    inlineKeyboard {
-                        button(gameInfoCommand, role.id, msgId)
-                    }
                 }
             } catch (e: Exception) {
                 log.error("Unable to send player info message to $con, role: $role", e)

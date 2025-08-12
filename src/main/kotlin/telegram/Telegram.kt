@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.*
 import org.bson.types.ObjectId
 import org.example.deleteMsgCommand
 import org.example.logger
-import org.example.sendMessageWithMarkup
+import org.example.sendmessage
 import org.example.telegram.ParametrizedProcessor.HandlerContext
 import org.slf4j.Logger
 
@@ -405,16 +405,13 @@ sealed interface CallContext {
     val bot: Bot
 
     fun sendClosable(text: String, definition: KeyboardContext.() -> Unit = {}): Long {
-        return bot.sendMessageWithMarkup(
+        return bot.sendmessage(
             chatId,
-            text,
-            { msgId ->
-                 inlineKeyboard {
-                    definition()
-                    button(deleteMsgCommand, msgId)
-                }
-            }
-        )
+            text
+        ).inlinekeyboard { msgId ->
+            definition()
+            button(deleteMsgCommand, msgId)
+        }.msgId
     }
 }
 

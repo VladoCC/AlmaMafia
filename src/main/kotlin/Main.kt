@@ -216,103 +216,47 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    this.sendMessageWithMarkup(
+    this.sendmessage(
         chatId,
         text
-    ) { msgId ->
-        inlineKeyboard { button(deleteMsgCommand, msgId) }
-    }
+    ).inlinekeyboard { button(deleteMsgCommand, it) }
 }
 
-fun Bot.sendMessageWithMarkup(
+fun Bot.sendmessage(
     chatId: Long,
-    text: String,
-    replyMarkup: (Long) -> ReplyMarkup
-): Long {
-    val res = this.sendMessage(
-        ChatId.fromId(chatId),
-        text,
-        replyMarkup = inlineKeyboard { button(blankCommand named "Загрузка...") },
-        parseMode = ParseMode.HTML
-    )
-    return if (res.isSuccess) {
-        val msgId = res.get().messageId
-        this.updateMessage(
-            chatId,
-            msgId,
-            replyMarkup = replyMarkup(msgId)
-        )
-        msgId
-    } else {
-        -1L
-    }
-}
-
-fun Bot.sendMessage(
-    chatId: Long,
-    text: String,
-    callback: (Long) -> Unit = {  },
-): Long {
+    text: String
+): MessageSentContext {
     val res = this.sendMessage(
         ChatId.fromId(chatId),
         text,
         parseMode = ParseMode.HTML
     )
-    return if (res.isSuccess) {
-        val msgId = res.get().messageId
-        callback.invoke(msgId)
-        msgId
-    } else {
-        -1L
-    }
-}
-
-fun Bot.updateMessage(
-    chatId: Long,
-    messageId: Long?,
-    text: String? = null,
-    replyMarkup: /*(Long) ->*/ ReplyMarkup? = /*{*/ inlineKeyboard {  } /*}*/
-) {
-    if (messageId != null) {
-        if (text == null) {
-            this.editMessageReplyMarkup(
-                ChatId.fromId(chatId),
-                messageId,
-                replyMarkup = replyMarkup//.invoke(messageId)
-            )
-        } else {
-            this.editMessageText(
-                ChatId.fromId(chatId),
-                messageId,
-                text = text,
-                parseMode = ParseMode.HTML,
-                replyMarkup = replyMarkup//.invoke(messageId)
-            )
-        }
-    }
+    return MessageSentContext(
+        this,
+        chatId,
+        if (res.isSuccess) res.get().messageId else -1L
+    )
 }
 
 private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
 
 fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long, chatId: Long) {
     val id = ObjectId()
-    bot.updateMessage(
-        chatId,
+    bot.editMessageText(
+        ChatId.fromId(chatId),
         messageId,
-        "Возможные сообщения:"
+        text = "Возможные сообщения:"
     )
     val adList = ads.find()
     val messages = adList.map { message ->
-        bot.sendMessageWithMarkup(
+        bot.sendmessage(
             chatId,
             message.text
-        ) { msgId ->
-            inlineKeyboard { button(adSelectCommand, message.id, id) }
-        }
+        ).inlinekeyboard { button(adSelectCommand, message.id, id) }.msgId
     }
     val lastId = messages.last()
-    bot.updateMessage(
-        chatId,
+    bot.editMessageReplyMarkup(
+        ChatId.fromId(chatId),
         lastId,
         replyMarkup = inlineKeyboard {
             button(adSelectCommand, adList.last().id, id)
@@ -326,10 +270,10 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
 fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
     val host = game.hostId
     fun send(chatId: Long) {
-        bot.sendMessage(
+        bot.sendmessage(
             chatId,
             ad.text
-        ) { msgId ->
+        ).callback { msgId ->
             bombs.save(
                 TimedMessage(
                     ObjectId(),
@@ -369,8 +313,8 @@ internal fun updateSettingsView(
 fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long, bot: Bot) {
     town.playerMap[playerPos]?.let<Person, Unit> { player ->
         val fallMode = games.get(town.gameId)?.host?.settings?.fallMode ?: false
-        bot.updateMessage(
-            chatId,
+        bot.editMessageReplyMarkup(
+            ChatId.fromId(chatId),
             messageId,
             replyMarkup = inlineKeyboard {
                 button(blankCommand named "Детали")
@@ -407,8 +351,8 @@ private fun updateTimer(
     bot: Bot
 ) {
     val text = timerText(timer.time)
-    bot.updateMessage(
-        timer.chatId,
+    bot.editMessageReplyMarkup(
+        ChatId.fromId(timer.chatId),
         timer.messageId,
         replyMarkup = inlineKeyboard {
             button(blankCommand named text)
@@ -499,8 +443,8 @@ fun showAdmin(
     messageId: Long,
     bot: Bot
 ) {
-    bot.updateMessage(
-        chatId,
+    bot.editMessageReplyMarkup(
+        ChatId.fromId(chatId),
         messageId,
         replyMarkup = inlineKeyboard {
             CheckOption.entries.forEach {
@@ -694,11 +638,10 @@ fun initAccount(
             connectionId = null
         }
     }
-    bot.sendMessage(
-        ChatId.fromId(chatId),
-        "Пожалуйста, введите свое имя. Это имя смогут видеть ведущие игр, к которым вы присоединяетесь.",
-        replyMarkup = ReplyKeyboardRemove(true)
-    )
+    bot.sendmessage(
+        chatId,
+        "Пожалуйста, введите свое имя. Это имя смогут видеть ведущие игр, к которым вы присоединяетесь."
+    ).replyMarkup { ReplyKeyboardRemove(true) }
 }
 
 fun showMainMenu(
@@ -726,8 +669,8 @@ fun showRoles(
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }
     val gameSetups = setups.find { gameId == game.id }
-    bot.updateMessage(
-        chatId,
+    bot.editMessageReplyMarkup(
+        ChatId.fromId(chatId),
         messageId,
         replyMarkup = inlineKeyboard {
             gameSetups.sortedBy { it.index }.chunked(2).forEach {
@@ -781,8 +724,8 @@ fun showPreview(
 ) {
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
-    bot.updateMessage(
-        chatId,
+    bot.editMessageReplyMarkup(
+        ChatId.fromId(chatId),
         messageId,
         replyMarkup = inlineKeyboard {
             val hideRolesMode = getHideRolesMode(game)
@@ -906,13 +849,13 @@ fun showGames(
     forceUpdate: Boolean = false
 ) {
     val msgId = if (messageId == -1L || forceUpdate) {
-        bot.sendMessage(chatId, "Доступные игры (нажмите на игру чтобы присоединиться):")
+        bot.sendmessage(chatId, "Доступные игры (нажмите на игру чтобы присоединиться):").msgId
     } else {
         messageId
     }
     accounts.update(chatId) { menuMessageId = msgId }
-    bot.updateMessage(
-        chatId,
+    bot.editMessageReplyMarkup(
+        ChatId.fromId(chatId),
         msgId,
         replyMarkup = menuButtons(msgId)
     )
