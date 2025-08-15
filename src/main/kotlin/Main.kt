@@ -216,22 +216,22 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    this.sendmessage(
+    this.sendMsg(
         chatId,
         text
-    ).inlinekeyboard { button(deleteMsgCommand, it) }
+    ).inlineKeyboard { button(deleteMsgCommand, it) }
 }
 
-fun Bot.sendmessage(
+fun Bot.sendMsg(
     chatId: Long,
     text: String
-): MessageSentContext {
+): MessageKeyboardContext {
     val res = this.sendMessage(
         ChatId.fromId(chatId),
         text,
         parseMode = ParseMode.HTML
     )
-    return MessageSentContext(
+    return MessageKeyboardContext(
         this,
         chatId,
         if (res.isSuccess) res.get().messageId else -1L
@@ -249,10 +249,10 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
     )
     val adList = ads.find()
     val messages = adList.map { message ->
-        bot.sendmessage(
+        bot.sendMsg(
             chatId,
             message.text
-        ).inlinekeyboard { button(adSelectCommand, message.id, id) }.msgId
+        ).inlineKeyboard { button(adSelectCommand, message.id, id) }.msgId
     }
     val lastId = messages.last()
     bot.editMessageReplyMarkup(
@@ -270,10 +270,10 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
 fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
     val host = game.hostId
     fun send(chatId: Long) {
-        bot.sendmessage(
+        bot.sendMsg(
             chatId,
             ad.text
-        ).callback { msgId ->
+        ).then { msgId ->
             bombs.save(
                 TimedMessage(
                     ObjectId(),
@@ -638,10 +638,11 @@ fun initAccount(
             connectionId = null
         }
     }
-    bot.sendmessage(
-        chatId,
-        "Пожалуйста, введите свое имя. Это имя смогут видеть ведущие игр, к которым вы присоединяетесь."
-    ).replyMarkup { ReplyKeyboardRemove(true) }
+    bot.sendMessage(
+        ChatId.fromId(chatId),
+        "Пожалуйста, введите свое имя. Это имя смогут видеть ведущие игр, к которым вы присоединяетесь.",
+        replyMarkup = ReplyKeyboardRemove(true)
+    )
 }
 
 fun showMainMenu(
@@ -849,7 +850,7 @@ fun showGames(
     forceUpdate: Boolean = false
 ) {
     val msgId = if (messageId == -1L || forceUpdate) {
-        bot.sendmessage(chatId, "Доступные игры (нажмите на игру чтобы присоединиться):").msgId
+        bot.sendMsg(chatId, "Доступные игры (нажмите на игру чтобы присоединиться):").msgId
     } else {
         messageId
     }

@@ -254,10 +254,10 @@ internal fun setPlayerNum(
             Date(System.currentTimeMillis() + sendPendingAfterSec * 1000)
         )
     )
-    bot.sendmessage(
+    bot.sendMsg(
         chatId,
         Const.Message.numSaved
-    ).callback{ msgId ->
+    ).then{ msgId ->
         bombs.save(
             TimedMessage(
                 ObjectId(),
@@ -590,12 +590,12 @@ internal fun sendPlayerInfo(
                     "Ведущий начал игру",
                     replyMarkup = mafiaKeyboard(chatId)
                 )
-                bot.sendmessage(
+                bot.sendMsg(
                     chatId,
                     getRoleDesc(role)
-                ).inlinekeyboard { msgId ->
+                ).inlineKeyboard { msgId ->
                     button(gameInfoCommand, role.id, msgId)
-                }.callback { msgId ->
+                }.then { msgId ->
                     messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
                 }
             } catch (e: Exception) {

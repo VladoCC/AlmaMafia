@@ -376,13 +376,13 @@ data class Town(
         endNight()
         val fullLog = fullLog(this)
         if (fullLog.isNotBlank()) {
-            bot.sendmessage(
+            bot.sendMsg(
                 chatId,
                 "Все события:\n${fullLog}"
             )
         }
 
-        bot.sendmessage(
+        bot.sendMsg(
             chatId,
             "Результат ночи:\n" + shortLog(this).ifBlank { "Не произошло никаких событий" }
         )
@@ -411,7 +411,7 @@ data class Town(
             }
         }
         
-        bot.sendmessage(
+        bot.sendMsg(
             chatId,
             "День ${towns[game.id]?.day}\n" +
                     "Вживых:\n" + teamSet.joinToString("\n") {

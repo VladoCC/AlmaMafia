@@ -12,26 +12,23 @@ internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
     val chatId = chat.id
     val active = games.find().sortedBy { it.createdAt }.reversed()
     val recent = gameHistory.find().sortedBy { it.playedAt }.reversed()
-    bot.sendmessage(
+    bot.sendMsg(
         chatId,
         if (active.isNotEmpty() || recent.isNotEmpty()) "Доступные игры:" else "Нет доступных игр"
-    ).inlinekeyboard { msgId ->
-        inlineKeyboard {
-            if (active.isNotEmpty()) {
-                button(blankCommand named "Активные")
-            }
-
-            active.forEach {
-                button(sendAdCommand named it.name(), it.id, msgId)
-            }
-            if (recent.isNotEmpty()) {
-                button(blankCommand named "Недавние")
-            }
-            recent.forEach {
-                button(sendAdHistoryCommand named it.name(), it.id, msgId)
-            }
-            button(deleteMsgCommand, msgId)
+    ).inlineKeyboard { msgId ->
+        if (active.isNotEmpty()) {
+            button(blankCommand named "Активные")
         }
+        active.forEach {
+            button(sendAdCommand named it.name(), it.id, msgId)
+        }
+        if (recent.isNotEmpty()) {
+            button(blankCommand named "Недавние")
+        }
+        recent.forEach {
+            button(sendAdHistoryCommand named it.name(), it.id, msgId)
+        }
+        button(deleteMsgCommand, msgId)
     }
 }
 
@@ -44,7 +41,7 @@ internal fun showSettingsMenu(
     desc: String = ""
 ) {
     val msgId = if (messageId == -1L) {
-        bot.sendmessage(
+        bot.sendMsg(
             chatId,
             "Настройки" +
                 if (desc.isNotBlank()) "\n\nОписание:\n$desc" else ""
@@ -80,7 +77,7 @@ internal fun showLobbyMenu(
     forceUpdate: Boolean = false
 ): Long {
     val msgId = if (forceUpdate || messageId == -1L) {
-        bot.sendmessage(chatId, "Меню ведущего:").msgId
+        bot.sendMsg(chatId, "Меню ведущего:").msgId
     } else {
         messageId
     }
@@ -100,7 +97,7 @@ internal fun showPlayerMenu(
     value: Int = 0
 ): Long {
     val msgId = if (messageId == -1L) {
-        bot.sendmessage(chatId, "Меню игрока:").msgId
+        bot.sendMsg(chatId, "Меню игрока:").msgId
     } else {
         messageId
     }
@@ -247,7 +244,7 @@ internal fun <T: Any> showPaginatedMenu(
     itemsPerPage: Int = defaultItemsPerPage
 ) {
     val msgId = if (messageId == -1L) {
-        bot.sendmessage(chatId, title).msgId
+        bot.sendMsg(chatId, title).msgId
     } else {
         messageId
     }
@@ -341,7 +338,7 @@ internal fun showChosenSettingsMenu(chatId: Long, messageId: Long, bot: Bot, cho
 
 internal fun showChosenHostInfoSettings(chatId: Long, messageId: Long, bot: Bot, hostId: Long) {
     val msgId = if (messageId == -1L) {
-        bot.sendmessage(chatId, "Настройки ведущего").msgId
+        bot.sendMsg(chatId, "Настройки ведущего").msgId
     } else {
         messageId
     }
@@ -423,7 +420,7 @@ internal fun showNightRoleMenu(
     messageId: Long
 ) {
     val msgId = if (messageId == -1L) {
-        bot.sendmessage(chatId, "Меню ночи:").msgId
+        bot.sendMsg(chatId, "Меню ночи:").msgId
     } else {
         messageId
     }
@@ -512,7 +509,7 @@ internal fun showDayMenu(
         val fallMode = settings?.fallMode ?: false
 
         val msgId = if (acc.menuMessageId == -1L) {
-            bot.sendmessage(chatId, "Меню дня:").msgId
+            bot.sendMsg(chatId, "Меню дня:").msgId
         } else {
             messageId
         }
