@@ -125,12 +125,7 @@ object MafiaHandler {
             any {
                 games.get(con.gameId)?.let { game ->
                     if (game.state == GameState.Game) {
-                        bot.sendMsg(
-                            chatId,
-                            "Игрок ${con.pos} - ${con.name()} пишет:\n" + query
-                        ).inlineKeyboard { msgId ->
-                            button(deleteMsgCommand, msgId)
-                        }
+                        sendClosable("Игрок ${con.pos} - ${con.name()} пишет:\n" + query)
                         return@any
                     } else {
                         val num: Int
@@ -264,7 +259,7 @@ object MafiaHandler {
                             }
                         }
 
-                        showChosenHostInfoSettings(chatId, adminMenu.messageId, bot, hostInfo.chatId)
+                        showChosenHostSettings(bot, chatId, adminMenu.messageId, hostInfo.chatId)
                         messageId?.let { id -> bot.deleteMessage(ChatId.fromId(chatId), id) }
                         adminContexts.update(chatId) {
                             state = AdminState.NONE
@@ -332,8 +327,9 @@ object MafiaHandler {
     private suspend fun ContainerBlock.BasicContext.adminCommands() {
         if (isAdmin(chatId)) {
             simple(adCommand) {
-                bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
-                showAdMenu(ChatId.fromId(chatId), bot)
+                val chat = ChatId.fromId(chatId)
+                bot.deleteMessage(chat, messageId ?: -1L)
+                showAdMenu(bot, chat)
             }
             simple(adNewCommand) {
                 bot.sendMsg(
@@ -350,7 +346,7 @@ object MafiaHandler {
                 bot.sendMsg(
                     chatId,
                     "Меню администратора:"
-                ).then { messageId -> showAdmin(chatId, messageId, bot) }
+                ).then { messageId -> showAdmin(bot, chatId, messageId) }
             }
             adPopups.get(chatId)?.let {
                 any {
@@ -593,20 +589,20 @@ object MafiaHandler {
                 }
             }
             parametrized(advertCommand) {
-                showAdMenu(ChatId.fromId(chatId), bot)
+                showAdMenu(bot, ChatId.fromId(chatId))
             }
             parametrized(updateCheckCommand) {
                 updateCheck(str(0))
-                showAdmin(chatId, long(1), bot)
+                showAdmin(bot, chatId, long(1))
             }
             parametrized(hostRequestCommand) {
-                showHostRequests(long(0), chatId, bot, int(1))
+                showHostRequests(bot, chatId, long(0), int(1), bool(2))
             }
             parametrized(hostSettingsCommand) {
-                showHostSettings(long(0), chatId, bot, int(1))
+                showHostSettings(bot, chatId, long(0), int(1), bool(2))
             }
             parametrized(adminSettingsCommand) {
-                showAdminListMenu(chatId, long(0), bot, int(1))
+                showAdminListMenu(bot, chatId, long(0), int(1), bool(2))
             }
             parametrized(timeLimitOnCommand) {
                 bot.sendMsg(
@@ -618,7 +614,7 @@ object MafiaHandler {
             }
             parametrized(timeLimitOffCommand) {
                 hostInfos.update(long(0)) { timeLimit = false }
-                showChosenHostInfoSettings(chatId, long(1), bot, long(0))
+                showChosenHostSettings(bot, chatId, long(1), long(0))
             }
             parametrized(gameLimitOnCommand) {
                 bot.sendMsg(
@@ -630,23 +626,23 @@ object MafiaHandler {
             }
             parametrized(gameLimitOffCommand) {
                 hostInfos.update(long(0)) { gameLimit = false }
-                showChosenHostInfoSettings(chatId, long(1), bot, long(0))
+                showChosenHostSettings(bot, chatId, long(1), long(0))
             }
             parametrized(shareCommand) {
                 hostInfos.get(long(0))?.let {
                     hostInfos.update(long(0)) { canShare = !it.canShare }
-                    showChosenHostInfoSettings(chatId, long(1), bot, long(0))
+                    showChosenHostSettings(bot, chatId, long(1), long(0))
                 }
             }
             parametrized(canReassignCommand) {
                 hostInfos.get(long(0))?.let {
                     hostInfos.update(long(0)) { canReassign = !it.canReassign }
-                    showChosenHostInfoSettings(chatId, long(1), bot, long(0))
+                    showChosenHostSettings(bot, chatId, long(1), long(0))
                 }
             }
             parametrized(deleteHostCommand) {
                 hostInfos.delete(long(0))
-                showHostSettings(long(1), chatId, bot, int(2))
+                showHostSettings(bot, chatId, long(1), int(2))
             }
             parametrized(promoteHostCommand) {
                 accounts.get(long(0))?.let {
@@ -664,7 +660,7 @@ object MafiaHandler {
             parametrized(confirmPromoteCommand) {
                 bot.deleteMessage(ChatId.fromId(chatId), long(2))
                 admins.save(UserId(ObjectId(), long(0)))
-                showChosenHostInfoSettings(chatId, long(1), bot, long(0))
+                showChosenHostSettings(bot, chatId, long(1), long(0))
             }
             parametrized(allowHostCommand) {
                 hostInfos.save(HostInfo(ObjectId(), long(0)))
@@ -676,38 +672,38 @@ object MafiaHandler {
                         replyMarkup = mafiaKeyboard(long(0))
                     )
                 }
-                showHostRequests(long(1), chatId, bot)
+                showHostRequests(bot, chatId, long(1))
             }
             parametrized(denyHostCommand) {
                 hostRequests.delete(long(0))
-                showHostRequests(long(1), chatId, bot)
+                showHostRequests(bot, chatId, long(1))
             }
             parametrized(removeAdminCommand) {
                 admins.delete(long(0))
-                showAdminListMenu(chatId, long(1), bot, int(2))
+                showAdminListMenu(bot, chatId, long(1), int(2))
             }
             parametrized(chooseHostAdminCommand) {
-                showChosenSettingsMenu(chatId, long(0), bot, long(1))
+                showChosenSettingsMenu(bot, chatId, long(0), long(1))
             }
             parametrized(changeHostAdminSettingCommand) {
                 hostSettings.update(long(1)) { HostOptions.valueOf(str(2)).update(this) }
-                showChosenSettingsMenu(chatId, long(0), bot, long(1))
+                showChosenSettingsMenu(bot, chatId, long(0), long(1))
             }
             parametrized(chooseHostSettingsCommand) {
-                showChosenHostInfoSettings(chatId, long(0), bot, long(1))
+                showChosenHostSettings(bot, chatId, long(0), long(1))
             }
             parametrized(adminBackCommand) {
-                showAdmin(chatId, long(0), bot)
+                showAdmin(bot, chatId, long(0))
                 accounts.update(chatId) {
                     state = AccountState.Menu
                 }
                 adminContexts.delete(chatId)
             }
             parametrized(gamesSettingsCommand) {
-                showGameStatusMenu(chatId, long(0), bot, int(1))
+                showGameStatusMenu(bot, chatId, long(0), int(1), bool(2))
             }
             parametrized(hostAdminSettingsCommand) {
-                showHostAdminSettingsMenu(chatId, long(0), bot, int(1))
+                showHostAdminSettingsMenu(bot, chatId, long(0), int(1), bool(2))
             }
             parametrized(terminateGameCommand) {
                 games.get(id(0))?.let { game ->
@@ -733,16 +729,16 @@ object MafiaHandler {
             parametrized(sendAdCommand) {
                 val game = games.get(id(0))
                 if (game != null) {
-                    showAd(game, connections.find { gameId == game.id }, bot, long(1), chatId)
+                    showAd(bot, game, long(1), connections.find { gameId == game.id }, chatId)
                 } else {
                     gameHistory.find { this.game.id == id(0) }.lastOrNull()?.let {
-                        showAd(it.game, it.connections, bot, long(1), chatId)
+                        showAd(bot, it.game, long(1), it.connections, chatId)
                     }
                 }
             }
             parametrized(sendAdHistoryCommand) {
                 gameHistory.get(id(0))?.let {
-                    showAd(it.game, it.connections, bot, long(1), chatId)
+                    showAd(bot, it.game, long(1), it.connections, chatId)
                 }
             }
             parametrized(adSelectCommand) {
@@ -753,7 +749,7 @@ object MafiaHandler {
                         target.messages.forEach {
                             bot.deleteMessage(chat, it)
                         }
-                        selectAd(target.game, target.connections, bot, ad)
+                        selectAd(bot, target.game, ad, target.connections)
                     }
                 }
             }
@@ -777,7 +773,7 @@ object MafiaHandler {
         /** with Game of this host **/
         block({ notNull { games.find { hostId == chatId }.singleOrNull() } }) { game ->
             parametrized(menuKickCommand) {
-                showKickMenu(game, long(0), bot, chatId, int(1))
+                showKickMenu(game, long(0), bot, chatId, int(1), bool(2))
             }
             parametrized(changeHostCommand) {
                 games.update(game.id) {
@@ -828,8 +824,10 @@ object MafiaHandler {
                         accounts.get(con.playerId)?.let { acc ->
                             bot.deleteMessage(ChatId.fromId(acc.chatId), acc.menuMessageId)
                             val msgId = showPlayerMenu(acc.chatId, -1L, bot, con.id)
-                            accounts.update(con.playerId) {
-                                menuMessageId = msgId
+                            msgId?.let {
+                                accounts.update(con.playerId) {
+                                    menuMessageId = msgId
+                                }
                             }
                         }
                     }
@@ -1165,7 +1163,7 @@ object MafiaHandler {
                                 con.player?.let { acc ->
                                     val playerChatId = con.playerId
                                     bot.deleteMessage(ChatId.fromId(playerChatId), acc.menuMessageId)
-                                    val msgId = bot.sendMsg(
+                                    bot.sendMsg(
                                         playerChatId,
                                         "Роли выданы"
                                     ).inlineKeyboard { msgId ->
@@ -1174,12 +1172,7 @@ object MafiaHandler {
                                         if (checks.get(CheckOption.ONE_MSG_PLAYER_INFO)) {
                                             button(aliveInfoCommand, pair.roleId, msgId)
                                         }
-                                    }.msgId
-                                    if (msgId == -1L) {
-                                        null
-                                    } else {
-                                        MessageLink(ObjectId(), game.id, con.playerId, msgId)
-                                    }
+                                    }.then { MessageLink(ObjectId(), game.id, con.playerId, it) }
                                 }
                             }
                         }
@@ -1607,11 +1600,11 @@ object MafiaHandler {
                     if (game.state == GameState.Game || game.state == GameState.Reveal) {
                         try {
                             roles.get(id(0))?.let { role ->
-                                val playerChatId = con.playerId
+                                val chat = con.playerId
                                 val desc = getRoleDesc(role)
                                 if (checks.get(CheckOption.ONE_MSG_PLAYER_INFO)) {
                                     bot.editMessageText(
-                                        ChatId.fromId(playerChatId),
+                                        ChatId.fromId(chat),
                                         long(1),
                                         text = desc,
                                         replyMarkup = inlineKeyboard {
@@ -1621,14 +1614,14 @@ object MafiaHandler {
                                     )
                                     messageLinks.updateMany({
                                         messageId == long(1)
-                                                && playerChatId == con.playerId
+                                                && chat == con.playerId
                                                 && gameId == game.id
                                     }) {
                                         type = LinkType.ROLE
                                     }
                                 } else {
                                    bot.sendMsg(
-                                       playerChatId,
+                                       chat,
                                        desc
                                    ).then { msgId ->
                                        if (checks.get(CheckOption.GAME_MESSAGES)) {
@@ -1643,7 +1636,7 @@ object MafiaHandler {
                                        }
                                    }
                                     bot.editMessageReplyMarkup(
-                                        ChatId.fromId(playerChatId),
+                                        ChatId.fromId(chat),
                                         long(1),
                                         replyMarkup = inlineKeyboard {
                                             button(gameInfoCommand, role.id, long(1))

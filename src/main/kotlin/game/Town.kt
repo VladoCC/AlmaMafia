@@ -3,6 +3,7 @@ package org.example.game
 import com.github.kotlintelegrambot.Bot
 import org.example.*
 import org.example.lua.*
+import org.example.telegram.sendMsg
 import org.example.telegram.showDayMenu
 
 data class Town(

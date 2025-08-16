@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.*
 import org.bson.types.ObjectId
 import org.example.deleteMsgCommand
 import org.example.logger
-import org.example.sendMsg
 import org.example.telegram.ParametrizedProcessor.HandlerContext
 import org.slf4j.Logger
 
@@ -29,6 +28,7 @@ class Store(query: String) : ParameterStore {
     override fun long(index: Int) = value(index) { toLong() }
     override fun id(index: Int) = value(index) { ObjectId(this) }
     override fun str(index: Int) = value(index) { this }
+    override fun bool(index: Int) = value(index) { toBoolean() }
 
     override fun isInt(index: Int): Boolean {
         return try {
@@ -58,6 +58,7 @@ interface ParameterStore {
     fun long(index: Int): Long
     fun id(index: Int): ObjectId
     fun str(index: Int): String
+    fun bool(index: Int): Boolean
 
     fun isInt(index: Int): Boolean
     fun isLong(index: Int): Boolean
@@ -404,7 +405,7 @@ sealed interface CallContext {
     val username: String
     val bot: Bot
 
-    fun sendClosable(text: String, definition: KeyboardContext.() -> Unit = {}): Long {
+    fun sendClosable(text: String, definition: KeyboardContext.() -> Unit = {}): Long? {
         return bot.sendMsg(
             chatId,
             text

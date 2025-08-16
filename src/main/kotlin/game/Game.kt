@@ -20,14 +20,16 @@ internal fun initGame(game: Game?, path: String, chatId: Long, messageId: Long, 
         accounts.update(chatId) {
             state = AccountState.Host
         }
-        bot.sendMessage(
-            ChatId.fromId(chatId),
+        bot.sendMsg(
+            chatId,
             "Игра создана. Ожидайте присоединения игроков.",
-            replyMarkup = mafiaKeyboard(chatId)
+            mafiaKeyboard(chatId)
         )
         val msgId = showLobbyMenu(chatId, messageId, game, bot, true)
-        accounts.update(chatId) {
-            menuMessageId = msgId
+        msgId?.let {
+            accounts.update(chatId) {
+                menuMessageId = msgId
+            }
         }
     } else {
         error("Не удалось создать игру. Попробуйте еще раз.")
@@ -300,8 +302,10 @@ internal fun joinGame(
         replyMarkup = mafiaKeyboard(chatId)
     )
     val msgId = showPlayerMenu(chatId, -1L, bot, id)
-    accounts.update(chatId) {
-        menuMessageId = msgId
+    msgId?.let {
+        accounts.update(chatId) {
+            menuMessageId = msgId
+        }
     }
 }
 

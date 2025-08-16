@@ -46,7 +46,7 @@ const val timerMaxTimeMin = 5L
 const val timerInactiveTimeMin = 2L
 const val roleNameLen = 32
 const val roleDescLen = 280
-const val defaultItemsPerPage: Int = 10
+const val defaultPageSize: Int = 10
 val numbers = arrayOf("0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣")
 val notKnowingTeams = arrayOf("none", "city")
 val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
@@ -222,25 +222,21 @@ fun Bot.error(chatId: Long, text: String = "Неизвестная команд�
     ).inlineKeyboard { button(deleteMsgCommand, it) }
 }
 
-fun Bot.sendMsg(
-    chatId: Long,
-    text: String
-): MessageKeyboardContext {
-    val res = this.sendMessage(
-        ChatId.fromId(chatId),
-        text,
-        parseMode = ParseMode.HTML
-    )
-    return MessageKeyboardContext(
-        this,
-        chatId,
-        if (res.isSuccess) res.get().messageId else -1L
+private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
+
+internal fun topItemIndex(itemsOffset: Int, pageSize: Int): Int {
+    return itemsOffset - itemsOffset % pageSize
+}
+
+internal fun <T: Any> subListFromOffset(list: List<T>, itemsOffset: Int, pageSize: Int): List<T> {
+    val topItemIndex = topItemIndex(itemsOffset, pageSize)
+    return list.subList(
+        topItemIndex,
+        (topItemIndex + pageSize).coerceAtMost(list.size)
     )
 }
 
-private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
-
-fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long, chatId: Long) {
+fun showAd(bot: Bot, game: Game, messageId: Long, connections: List<Connection>, chatId: Long) {
     val id = ObjectId()
     bot.editMessageText(
         ChatId.fromId(chatId),
@@ -253,6 +249,7 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
             chatId,
             message.text
         ).inlineKeyboard { button(adSelectCommand, message.id, id) }.msgId
+            ?: -1L //placeholder
     }
     val lastId = messages.last()
     bot.editMessageReplyMarkup(
@@ -267,7 +264,7 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
 }
 
 
-fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
+fun selectAd(bot: Bot, game: Game, ad: Message, connections: List<Connection>) {
     val host = game.hostId
     fun send(chatId: Long) {
         bot.sendMsg(
@@ -378,10 +375,11 @@ private fun timerText(time: Long): String {
 }
 
 fun showHostSettings(
-    messageId: Long,
-    chatId: Long,
     bot: Bot,
-    pageIndex: Int = 0
+    chatId: Long,
+    messageId: Long,
+    itemsOffset: Int,
+    showNumpadMenu: Boolean = false
 ) {
     val hostInfosList = hostInfos.find()
     showPaginatedMenu(
@@ -389,29 +387,29 @@ fun showHostSettings(
         messageId,
         bot,
         "Список ведущих",
-        subList(hostInfosList, pageIndex),
+        subListFromOffset(hostInfosList, itemsOffset, defaultPageSize),
         hostInfosList.size,
-        {
-            accounts.get(it.chatId)?.let { acc ->
+        { index, hostInfo ->
+            accounts.get(hostInfo.chatId)?.let { acc ->
                 row {
-                    button(chooseHostSettingsCommand named ("👤 " + acc.fullName()), -1L, it.chatId)
-                    button(deleteHostCommand, it.chatId, messageId, pageIndex)
+                    button(chooseHostSettingsCommand named ("${index + 1}. 👤 " + acc.fullName()), messageId, hostInfo.chatId)
+                    button(deleteHostCommand, hostInfo.chatId, messageId, itemsOffset)
                 }
             }
         },
-        {
-            button(adminBackCommand, messageId)
-        },
+        adminBackCommand,
         hostSettingsCommand,
-        pageIndex
+        itemsOffset,
+        showNumpadMenu
     )
 }
 
 fun showHostRequests(
-    messageId: Long,
-    chatId: Long,
     bot: Bot,
-    pageIndex: Int = 0
+    chatId: Long,
+    messageId: Long,
+    itemsOffset: Int = 0,
+    showNumpadMenu: Boolean = false
 ) {
     val hostRequestsList = hostRequests.find()
     showPaginatedMenu(
@@ -419,29 +417,28 @@ fun showHostRequests(
         messageId,
         bot,
         "Запросы на ведение",
-        subList(hostRequestsList, pageIndex),
+        subListFromOffset(hostRequestsList, itemsOffset, defaultPageSize),
         hostRequestsList.size,
-        {
-            accounts.get(it.chatId)?.let { acc ->
-                button(blankCommand named acc.fullName())
+        { index, hostRequest ->
+            accounts.get(hostRequest.chatId)?.let { acc ->
+                button(blankCommand named "${index + 1}. ${acc.fullName()}")
                 row {
-                    button(allowHostCommand, it.chatId, messageId)
-                    button(denyHostCommand, it.chatId, messageId)
+                    button(allowHostCommand, hostRequest.chatId, messageId)
+                    button(denyHostCommand, hostRequest.chatId, messageId)
                 }
             }
         },
-        {
-            button(adminBackCommand, messageId)
-        },
+        adminBackCommand,
         hostRequestCommand,
-        pageIndex
+        itemsOffset,
+        showNumpadMenu
     )
 }
 
 fun showAdmin(
+    bot: Bot,
     chatId: Long,
-    messageId: Long,
-    bot: Bot
+    messageId: Long
 ) {
     bot.editMessageReplyMarkup(
         ChatId.fromId(chatId),
@@ -457,12 +454,12 @@ fun showAdmin(
                     )
                 }
             }
-            button(hostRequestCommand, messageId, 0)
-            button(hostSettingsCommand, messageId, 0)
-            button(adminSettingsCommand, messageId, 0)
-            button(gamesSettingsCommand, messageId, 0)
-            button(hostAdminSettingsCommand, messageId, 0)
-            button(advertCommand, messageId)
+            button(hostRequestCommand, messageId, 0, false)
+            button(hostSettingsCommand, messageId, 0, false)
+            button(adminSettingsCommand, messageId, 0, false)
+            button(gamesSettingsCommand, messageId, 0, false)
+            button(hostAdminSettingsCommand, messageId, 0, false)
+            button(advertCommand)
             button(deleteMsgCommand, messageId)
         }
     )
@@ -638,10 +635,10 @@ fun initAccount(
             connectionId = null
         }
     }
-    bot.sendMessage(
-        ChatId.fromId(chatId),
+    bot.sendMsg(
+        chatId,
         "Пожалуйста, введите свое имя. Это имя смогут видеть ведущие игр, к которым вы присоединяетесь.",
-        replyMarkup = ReplyKeyboardRemove(true)
+        ReplyKeyboardRemove(true)
     )
 }
 
@@ -834,7 +831,7 @@ fun lobby(messageId: Long, game: Game): InlineKeyboardMarkup {
             button(command("Игроков: ${players.size}", "default"))
         }
         row { button(dummyCommand, messageId) }
-        row { button(menuKickCommand, messageId) }
+        row { button(menuKickCommand, messageId, 0, false) }
         //row { button(resetNumsCommand, messageId) }
         if (game.creator?.hostInfo?.canShare == true) {
             button(changeHostCommand, messageId)
@@ -854,12 +851,14 @@ fun showGames(
     } else {
         messageId
     }
-    accounts.update(chatId) { menuMessageId = msgId }
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
-        msgId,
-        replyMarkup = menuButtons(msgId)
-    )
+    if (msgId != null) {
+        accounts.update(chatId) { menuMessageId = msgId }
+        bot.editMessageReplyMarkup(
+            ChatId.fromId(chatId),
+            msgId,
+            replyMarkup = menuButtons(msgId)
+        )
+    }
 }
 
 fun mafiaKeyboard(chatId: Long, definition: FooterContext.() -> Unit = {}) = footerKeyboard {
