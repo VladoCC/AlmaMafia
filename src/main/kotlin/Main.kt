@@ -244,22 +244,17 @@ fun showAd(bot: Bot, game: Game, messageId: Long, connections: List<Connection>,
         text = "Возможные сообщения:"
     )
     val adList = ads.find()
-    val messages = adList.map { message ->
-        bot.sendMsg(
+    val messages = adList.mapIndexedNotNull { index, message ->
+        bot.sendClonedMessage(
             chatId,
-            message.text
-        ).inlineKeyboard { button(adSelectCommand, message.id, id) }.msgId
-            ?: -1L //placeholder
+            message
+        ) {
+            button(adSelectCommand, message.id, id)
+            if (index == adList.lastIndex) {
+                button(adClearCommand, id)
+            }
+        }.msgId
     }
-    val lastId = messages.last()
-    bot.editMessageReplyMarkup(
-        ChatId.fromId(chatId),
-        lastId,
-        replyMarkup = inlineKeyboard {
-            button(adSelectCommand, adList.last().id, id)
-            button(adClearCommand, id)
-        }
-    )
     adTargets.save(AdTarget(id, game, connections, messages + listOf(messageId)))
 }
 

@@ -5,6 +5,7 @@ import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.ReplyMarkup
+import org.example.Message
 
 fun Bot.sendMsg(
     chatId: Long,
@@ -22,6 +23,14 @@ fun Bot.sendMsg(
         chatId,
         if (res.isSuccess) res.get().messageId else null
     )
+}
+
+fun Bot.sendClonedMessage(
+    chatId: Long,
+    message: Message,
+    keyboard: KeyboardContext.(Long) -> Unit
+): MessageCallbackContext {
+    return this.sendMsg(chatId, message.text).inlineKeyboard { keyboard(it) }
 }
 
 //fun Message.updateKeyboard(bot: Bot, keyboardMarkup: InlineKeyboardMarkup) {
