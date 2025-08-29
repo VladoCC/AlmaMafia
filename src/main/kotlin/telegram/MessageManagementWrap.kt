@@ -5,7 +5,6 @@ import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import com.github.kotlintelegrambot.entities.ParseMode
 import com.github.kotlintelegrambot.entities.ReplyMarkup
-import org.example.Message
 
 fun Bot.sendMsg(
     chatId: Long,
@@ -25,18 +24,6 @@ fun Bot.sendMsg(
     )
 }
 
-fun Bot.sendClonedMessage(
-    chatId: Long,
-    message: Message,
-    keyboard: KeyboardContext.(Long) -> Unit
-): MessageCallbackContext {
-    return this.sendMsg(chatId, message.text).inlineKeyboard { keyboard(it) }
-}
-
-//fun Message.updateKeyboard(bot: Bot, keyboardMarkup: InlineKeyboardMarkup) {
-//    MessageKeyboardContext(bot, this.)
-//}
-
 sealed class MessageCallbackContext(
     val msgId: Long?
 ) {
@@ -54,8 +41,7 @@ class MessageKeyboardContext(
     msgId: Long?
 ) : MessageCallbackContext(msgId) {
 
-//    private
-    fun replyMarkup(replyMarkup: (Long) -> InlineKeyboardMarkup): MessageCallbackContext {
+    private fun replyMarkup(replyMarkup: (Long) -> InlineKeyboardMarkup): MessageCallbackContext {
         then { msgId ->
             bot.editMessageReplyMarkup(
                 ChatId.fromId(chatId),
@@ -79,6 +65,25 @@ class MessageKeyboardContext(
         value: Int
     ): MessageCallbackContext {
         return replyMarkup { numpadKeyboard(title, numCommand, acceptCommand, cancelCommand, target, value, it) }
+    }
+
+}
+
+class MessageUpdateContext(
+    private val bot: Bot,
+    private val chatId: Long,
+    msgId: Long?
+): MessageCallbackContext(msgId) {
+
+    fun updateKeyboard(replyMarkup: (Long) -> InlineKeyboardMarkup): MessageCallbackContext {
+        then { msgId ->
+            bot.editMessageReplyMarkup(
+                ChatId.fromId(chatId),
+                msgId,
+                replyMarkup = replyMarkup.invoke(msgId)
+            )
+        }
+        return this
     }
 
 }

@@ -236,27 +236,34 @@ internal fun <T: Any> subListFromOffset(list: List<T>, itemsOffset: Int, pageSiz
     )
 }
 
-fun showAd(bot: Bot, game: Game, messageId: Long, connections: List<Connection>, chatId: Long) {
+fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long, chatId: Long) {
     val id = ObjectId()
+    val chat = ChatId.fromId(chatId)
     bot.editMessageText(
-        ChatId.fromId(chatId),
+        chat,
         messageId,
         text = "Возможные сообщения:"
     )
     val adList = ads.find()
-    val messages = adList.mapIndexedNotNull { index, message ->
-        bot.sendClonedMessage(
+    val messages = adList.map {
+        val msgId = bot.sendMsg(
             chatId,
-            message
-        ) {
-            button(adSelectCommand, message.id, id)
-            if (index == adList.lastIndex) {
-                button(adClearCommand, id)
+            it.text,
+            replyMarkup = inlineKeyboard {
+                button(adSelectCommand, it.id, id)
             }
-        }.msgId
+        ).msgId
+        MessageUpdateContext(bot, chatId, msgId)
     }
-    adTargets.save(AdTarget(id, game, connections, messages + listOf(messageId)))
+    messages.last().updateKeyboard {
+        inlineKeyboard {
+            button(adSelectCommand, adList.last().id, id)
+            button(adClearCommand, id)
+        }
+    }
+    adTargets.save(AdTarget(id, game, connections, messages.mapNotNull { it.msgId } + listOf(messageId)))
 }
+
 
 
 fun selectAd(bot: Bot, game: Game, ad: Message, connections: List<Connection>) {
