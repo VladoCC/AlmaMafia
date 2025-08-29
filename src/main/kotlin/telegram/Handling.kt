@@ -729,16 +729,16 @@ object MafiaHandler {
             parametrized(sendAdCommand) {
                 val game = games.get(id(0))
                 if (game != null) {
-                    showAd(bot, game, long(1), connections.find { gameId == game.id }, chatId)
+                    showAd(game, connections.find { gameId == game.id }, bot, long(1), chatId)
                 } else {
                     gameHistory.find { this.game.id == id(0) }.lastOrNull()?.let {
-                        showAd(bot, it.game, long(1), it.connections, chatId)
+                        showAd(it.game, it.connections, bot, long(1), chatId)
                     }
                 }
             }
             parametrized(sendAdHistoryCommand) {
                 gameHistory.get(id(0))?.let {
-                    showAd(bot, it.game, long(1), it.connections, chatId)
+                    showAd(it.game, it.connections, bot, long(1), chatId)
                 }
             }
             parametrized(adSelectCommand) {
