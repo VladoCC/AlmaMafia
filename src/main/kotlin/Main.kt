@@ -216,25 +216,13 @@ fun main() {
 }
 
 fun Bot.error(chatId: Long, text: String = "Неизвестная команда.") {
-    this.sendMsg(
+    sendMsg(
         chatId,
         text
     ).inlineKeyboard { button(deleteMsgCommand, it) }
 }
 
 private fun isKnownHost(chatId: Long) = hostInfos.get(chatId) != null
-
-internal fun topItemIndex(itemsOffset: Int, pageSize: Int): Int {
-    return itemsOffset - itemsOffset % pageSize
-}
-
-internal fun <T: Any> subListFromOffset(list: List<T>, itemsOffset: Int, pageSize: Int): List<T> {
-    val topItemIndex = topItemIndex(itemsOffset, pageSize)
-    return list.subList(
-        topItemIndex,
-        (topItemIndex + pageSize).coerceAtMost(list.size)
-    )
-}
 
 fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long, chatId: Long) {
     val id = ObjectId()
@@ -245,15 +233,13 @@ fun showAd(game: Game, connections: List<Connection>, bot: Bot, messageId: Long,
         text = "Возможные сообщения:"
     )
     val adList = ads.find()
-    val messages = adList.map {
-        val msgId = bot.sendMsg(
+    val messages = adList.map { message ->
+        bot.sendMsg(
             chatId,
-            it.text,
-            replyMarkup = inlineKeyboard {
-                button(adSelectCommand, it.id, id)
-            }
-        ).msgId
-        MessageUpdateContext(bot, chatId, msgId)
+            message.text
+        ).inlineKeyboard {
+            button(adSelectCommand, message.id, id)
+        }.updateContext(bot, chatId)
     }
     messages.last().updateKeyboard {
         inlineKeyboard {
@@ -380,29 +366,25 @@ fun showHostSettings(
     bot: Bot,
     chatId: Long,
     messageId: Long,
-    itemsOffset: Int,
-    showNumpadMenu: Boolean = false
+    itemsOffset: Int
 ) {
-    val hostInfosList = hostInfos.find()
     showPaginatedMenu(
         chatId,
         messageId,
         bot,
         "Список ведущих",
-        subListFromOffset(hostInfosList, itemsOffset, defaultPageSize),
-        hostInfosList.size,
+        hostInfos.find(),
         { index, hostInfo ->
             accounts.get(hostInfo.chatId)?.let { acc ->
                 row {
-                    button(chooseHostSettingsCommand named ("${index + 1}. 👤 " + acc.fullName()), messageId, hostInfo.chatId)
+                    button(chooseHostSettingsCommand named ("${index + 1}. ${acc.fullName()}"), messageId, hostInfo.chatId)
                     button(deleteHostCommand, hostInfo.chatId, messageId, itemsOffset)
                 }
             }
         },
         adminBackCommand,
         hostSettingsCommand,
-        itemsOffset,
-        showNumpadMenu
+        itemsOffset
     )
 }
 
@@ -410,17 +392,14 @@ fun showHostRequests(
     bot: Bot,
     chatId: Long,
     messageId: Long,
-    itemsOffset: Int = 0,
-    showNumpadMenu: Boolean = false
+    itemsOffset: Int = 0
 ) {
-    val hostRequestsList = hostRequests.find()
     showPaginatedMenu(
         chatId,
         messageId,
         bot,
         "Запросы на ведение",
-        subListFromOffset(hostRequestsList, itemsOffset, defaultPageSize),
-        hostRequestsList.size,
+        hostRequests.find(),
         { index, hostRequest ->
             accounts.get(hostRequest.chatId)?.let { acc ->
                 button(blankCommand named "${index + 1}. ${acc.fullName()}")
@@ -432,8 +411,7 @@ fun showHostRequests(
         },
         adminBackCommand,
         hostRequestCommand,
-        itemsOffset,
-        showNumpadMenu
+        itemsOffset
     )
 }
 
@@ -456,11 +434,17 @@ fun showAdmin(
                     )
                 }
             }
-            button(hostRequestCommand, messageId, 0, false)
-            button(hostSettingsCommand, messageId, 0, false)
-            button(adminSettingsCommand, messageId, 0, false)
-            button(gamesSettingsCommand, messageId, 0, false)
-            button(hostAdminSettingsCommand, messageId, 0, false)
+
+            fun paginatedMenuButton(menuCommand: Command) {
+                button(menuCommand, messageId, 0)
+            }
+
+            paginatedMenuButton(hostRequestCommand)
+            paginatedMenuButton(hostSettingsCommand)
+            paginatedMenuButton(adminSettingsCommand)
+            paginatedMenuButton(gamesSettingsCommand)
+            paginatedMenuButton(hostAdminSettingsCommand)
+
             button(advertCommand)
             button(deleteMsgCommand, messageId)
         }

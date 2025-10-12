@@ -28,7 +28,7 @@ internal fun initGame(game: Game?, path: String, chatId: Long, messageId: Long, 
         val msgId = showLobbyMenu(chatId, messageId, game, bot, true)
         msgId?.let {
             accounts.update(chatId) {
-                menuMessageId = msgId
+                menuMessageId = it
             }
         }
     } else {
@@ -304,7 +304,7 @@ internal fun joinGame(
     val msgId = showPlayerMenu(chatId, -1L, bot, id)
     msgId?.let {
         accounts.update(chatId) {
-            menuMessageId = msgId
+            menuMessageId = it
         }
     }
 }

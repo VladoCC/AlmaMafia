@@ -33,6 +33,10 @@ sealed class MessageCallbackContext(
         }
         return null
     }
+
+    fun updateContext(bot: Bot, chatId: Long): MessageUpdateContext {
+        return MessageUpdateContext(bot, chatId, msgId)
+    }
 }
 
 class MessageKeyboardContext(

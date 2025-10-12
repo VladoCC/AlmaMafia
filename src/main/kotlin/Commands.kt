@@ -98,7 +98,7 @@ val aliveInfoCommand = command("👥 Живые игроки", "liveInfo", 3)
 val updateCheckCommand = command("", "updateCheck", 2)
 
 val hostRequestCommand = command("Запросы на ведение", "hostRequests", 2)
-val hostSettingsCommand = command("Список ведущих", "hostSettings", 3)
+val hostSettingsCommand = command("Список ведущих", "hostSettings", 2)
 val adminSettingsCommand = command("Список администраторов", "adminSettings", 2)
 val gamesSettingsCommand = command("Список игр", "gamesSettings", 3)
 val hostAdminSettingsCommand = command("Список настроек ведущих", "hostAdminSettings", 2)

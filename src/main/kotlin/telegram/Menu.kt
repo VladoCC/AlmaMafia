@@ -2,7 +2,6 @@ package org.example.telegram
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
-import com.github.kotlintelegrambot.entities.InlineKeyboardMarkup
 import org.example.*
 import org.example.game.Town
 import org.example.game.desc
@@ -173,29 +172,25 @@ internal fun showAdminListMenu(
     bot: Bot,
     chatId: Long,
     messageId: Long,
-    itemsOffset: Int,
-    showNumpadMenu: Boolean = false
+    itemsOffset: Int
 ) {
-    val adminsList = admins.find()
     showPaginatedMenu(
         chatId,
         messageId,
         bot,
         "Список администраторов",
-        subListFromOffset(adminsList, itemsOffset, defaultPageSize),
-        adminsList.size,
-        { index, account ->
+        admins.find(),
+        { _, account ->
             accounts.get(account.chatId)?.let { acc ->
                 row {
-                    button(blankCommand named "${index + 1}. ${acc.fullName()}")
+                    button(blankCommand named acc.fullName())
                     button(removeAdminCommand, acc.chatId, messageId, itemsOffset)
                 }
             }
         },
         adminBackCommand,
         adminSettingsCommand,
-        itemsOffset,
-        showNumpadMenu
+        itemsOffset
     )
 }
 
@@ -203,25 +198,21 @@ internal fun showGameStatusMenu(
     bot: Bot,
     chatId: Long,
     messageId: Long,
-    itemsOffset: Int,
-    showNumpadMenu: Boolean
+    itemsOffset: Int
 ) {
-    val gamesList = games.find()
     showPaginatedMenu(
         chatId,
         messageId,
         bot,
         "Активные игры",
-        subListFromOffset(gamesList, itemsOffset, defaultPageSize),
-        gamesList.size,
-        { index, game ->
-            button(blankCommand named "${index + 1}. ${game.name()}")
+        games.find(),
+        { _, game ->
+            button(blankCommand named game.name())
             button(terminateGameCommand, game.id, messageId)
         },
         adminBackCommand,
         gamesSettingsCommand,
-        itemsOffset,
-        showNumpadMenu
+        itemsOffset
     )
 }
 
@@ -230,97 +221,47 @@ internal fun <T: Any> showPaginatedMenu(
     messageId: Long,
     bot: Bot,
     title: String,
-    subList: List<T>,
-    listSize: Int,
+    list: List<T>,
     actionForEach: KeyboardContext.(Int, T) -> Unit,
     bottomButtonCommand: Command,
     menuCommand: Command,
     itemsOffset: Int,
-    showNumpadMenu: Boolean,
     pageSize: Int = defaultPageSize
 ) {
-    val markup = if (showNumpadMenu) {
-        inlineKeyboard {
-            row { button(blankCommand named "Введите номер элемента") }
-            fun KeyboardContext.RowContext.digitButton(it: Int) {
-                val newValue = itemsOffset * 10 + it
-                if (newValue > listSize) {
-                    button(blankCommand)
-                } else {
-                    button(
-                        menuCommand named it.toString(),
-                        messageId,
-                        newValue,
-                        true
-                    )
+    val markup = inlineKeyboard {
+        button(blankCommand named title)
+        val listSize = list.size
+        if (listSize == 0) {
+            button(blankCommand named "Этот список пуст...")
+        } else {
+            val pageIndex = itemsOffset / pageSize
+            val totalAvailablePages = listSize / pageSize +
+                    if (listSize % pageSize == 0) 0
+                    else 1
+            button(blankCommand named "Номер страницы: ${pageIndex + 1}")
+            val topItemIndex = itemsOffset - itemsOffset % pageSize
+            row {
+                if (pageIndex > 0) {
+                    button(menuCommand named "⬅", messageId, topItemIndex - pageSize)
+                }
+                if (pageIndex < totalAvailablePages - 1) {
+                    button(menuCommand named "➡", messageId, topItemIndex + pageSize)
                 }
             }
-
-            val text = if (itemsOffset == 0) "Не указано" else itemsOffset.toString()
-            row {
-                button(blankCommand named "Макс: $listSize")
-                button(blankCommand named text)
-                button(
-                    menuCommand named "⌫",
-                    messageId,
-                    if (itemsOffset.toString().length > 1) itemsOffset.toString().dropLast(1) else "0",
-                    true
-                )
+            for (i in topItemIndex until topItemIndex + pageSize) {
+                if (i >= list.size) {
+                    break
+                }
+                actionForEach(i, list[i])
             }
-            (1..9).chunked(3).forEach {
+            if (totalAvailablePages > 1) {
                 row {
-                    it.forEach {
-                        digitButton(it)
-                    }
-                }
-            }
-            row {
-                button(blankCommand)
-                if (itemsOffset > 0) {
-                    digitButton(0)
-                }
-                button(blankCommand)
-            }
-            row {
-                button(menuCommand named "Назад", messageId, 0, false)
-                if (itemsOffset != 0) {
-                    button(menuCommand named "Найти", messageId, itemsOffset - 1, false)
+                    button(menuCommand named "⏪ Первая", messageId, 0)
+                    button(menuCommand named "⏩ Последняя", messageId, (totalAvailablePages - 1) * pageSize)
                 }
             }
         }
-    } else {
-        inlineKeyboard {
-            button(blankCommand named title)
-            if (listSize == 0) {
-                button(blankCommand named "🤷 Здесь ничего нет")
-            } else {
-                val pageIndex = itemsOffset / pageSize
-                val totalAvailablePages = listSize / pageSize +
-                        if (listSize % pageSize == 0) 0
-                        else 1
-                button(blankCommand named "Номер страницы: ${pageIndex + 1}")
-                val topItemIndex = topItemIndex(itemsOffset, pageSize)
-                row {
-                    if (pageIndex > 0) {
-                        button(menuCommand named "⬅", messageId, topItemIndex - pageSize, showNumpadMenu)
-                    }
-                    if (pageIndex < totalAvailablePages - 1) {
-                        button(menuCommand named "➡", messageId, topItemIndex + pageSize, showNumpadMenu)
-                    }
-                }
-                subList.forEachIndexed { index, item ->
-                    actionForEach(topItemIndex + index, item)
-                }
-                if (totalAvailablePages > 1) {
-                    row {
-                        button(menuCommand named "⏪ Первая", messageId, 0, showNumpadMenu)
-                        button(menuCommand named "⏩ Последняя", messageId, (totalAvailablePages - 1) * pageSize, showNumpadMenu)
-                    }
-                }
-                button(menuCommand named "Найти элемент по номеру", messageId, 0, true)
-            }
-            button(bottomButtonCommand, messageId)
-        }
+        button(bottomButtonCommand, messageId)
     }
     bot.editMessageReplyMarkup(
         ChatId.fromId(chatId),
@@ -333,28 +274,24 @@ internal fun showHostAdminSettingsMenu(
     bot: Bot,
     chatId: Long,
     messageId: Long,
-    itemsOffset: Int,
-    showNumpadMenu: Boolean
+    itemsOffset: Int
 ) {
-    val hostSettingsList = hostSettings.find()
     showPaginatedMenu(
         chatId,
         messageId,
         bot,
         "Ведущие",
-        subListFromOffset(hostSettingsList, itemsOffset, defaultPageSize),
-        hostSettingsList.size,
-        { index, hostSettings ->
+        hostSettings.find(),
+        { _, hostSettings ->
             button(
-                chooseHostAdminCommand named "${index + 1}. ${hostSettings.host?.fullName()?: ""}",
+                chooseHostAdminCommand named (hostSettings.host?.fullName()?: ""),
                 messageId,
                 hostSettings.hostId
             )
         },
         adminBackCommand,
         hostAdminSettingsCommand,
-        itemsOffset,
-        showNumpadMenu
+        itemsOffset
     )
 }
 
@@ -432,27 +369,23 @@ internal fun showKickMenu(
     messageId: Long,
     bot: Bot,
     chatId: Long,
-    itemsOffset: Int = 0,
-    showNumpadMenu: Boolean = false
+    itemsOffset: Int = 0
 ) {
-    val kicksList = kicks.find()
     showPaginatedMenu(
         chatId,
         messageId,
         bot,
         "Исключенные игроки",
-        subListFromOffset(kicksList, itemsOffset, defaultPageSize),
-        kicksList.size,
-        { index, kick ->
+        kicks.find(),
+        { _, kick ->
             accounts.get(kick.player)?.let { acc ->
-                button(blankCommand named "${index + 1}. ${acc.fullName()}")
+                button(blankCommand named acc.fullName())
                 button(unkickCommand, kick.id, messageId)
             }
         },
         hostBackCommand,
         menuKickCommand,
-        itemsOffset,
-        showNumpadMenu
+        itemsOffset
     )
 }
 
@@ -468,76 +401,76 @@ internal fun showNightRoleMenu(
         messageId
     }
     if (msgId != null) {
-    val wake = if (town.night.size > town.index) town.night[town.index] else null
-    if (wake == null) {
+        val wake = if (town.night.size > town.index) town.night[town.index] else null
+        if (wake == null) {
+            bot.editMessageText(
+                ChatId.fromId(chatId),
+                msgId,
+                text = "Ночь завершена",
+                replyMarkup = inlineKeyboard { button(dayCommand, msgId) }
+            )
+            return
+        }
+        val text = nightRoleDesc(wake)
         bot.editMessageText(
             ChatId.fromId(chatId),
             msgId,
-            text = "Ночь завершена",
-            replyMarkup = inlineKeyboard { button(dayCommand, msgId) }
-        )
-        return
-    }
-    val text = nightRoleDesc(wake)
-    bot.editMessageText(
-        ChatId.fromId(chatId),
-        msgId,
-        text = text,
-        replyMarkup = inlineKeyboard {
-            if (wake.players.none { it.alive }) {
-                row {
-                    if (town.actions.isNotEmpty()) {
-                        button(cancelActionCommand, msgId)
-                    }
-                    button(skipRoleCommand, msgId)
-                }
-            } else {
-                val players = town.players.filter { it.alive }.sortedBy { it.pos }
-                val actor = wake.actor()
-                val settings = accounts.get(chatId)?.settings
-                fun KeyboardContext.RowContext.selectButton(it: Person) {
-                    button(
-                        selectCommand named ((if (it.pos in town.selections) "✅ " else "") + desc(it)),
-                        it.pos,
-                        msgId,
-                        actor?.roleData?.id ?: ""
-                    )
-                }
-                if (settings == null || settings.doubleColumnNight) {
-                    reordered(players).chunked(2).forEach { list ->
-                        row {
-                            list.forEach {
-                                selectButton(it)
-                            }
-                            if (list.size == 1) {
-                                button(blankCommand)
-                            }
+            text = text,
+            replyMarkup = inlineKeyboard {
+                if (wake.players.none { it.alive }) {
+                    row {
+                        if (town.actions.isNotEmpty()) {
+                            button(cancelActionCommand, msgId)
                         }
+                        button(skipRoleCommand, msgId)
                     }
                 } else {
-                    players.forEach {
-                        row {
-                            selectButton(it)
-                        }
-                    }
-                }
-                row {
-                    if (town.actions.isNotEmpty()) {
-                        button(cancelActionCommand, msgId)
-                    }
-                    if (town.selections.isEmpty()) {
-                        button(skipRoleCommand, msgId)
-                    } else if (settings?.confirmNightSelection == true && town.selections.size == wake.type.choice) {
+                    val players = town.players.filter { it.alive }.sortedBy { it.pos }
+                    val actor = wake.actor()
+                    val settings = accounts.get(chatId)?.settings
+                    fun KeyboardContext.RowContext.selectButton(it: Person) {
                         button(
-                            executeActionCommand,
+                            selectCommand named ((if (it.pos in town.selections) "✅ " else "") + desc(it)),
+                            it.pos,
                             msgId,
                             actor?.roleData?.id ?: ""
                         )
                     }
+                    if (settings == null || settings.doubleColumnNight) {
+                        reordered(players).chunked(2).forEach { list ->
+                            row {
+                                list.forEach {
+                                    selectButton(it)
+                                }
+                                if (list.size == 1) {
+                                    button(blankCommand)
+                                }
+                            }
+                        }
+                    } else {
+                        players.forEach {
+                            row {
+                                selectButton(it)
+                            }
+                        }
+                    }
+                    row {
+                        if (town.actions.isNotEmpty()) {
+                            button(cancelActionCommand, msgId)
+                        }
+                        if (town.selections.isEmpty()) {
+                            button(skipRoleCommand, msgId)
+                        } else if (settings?.confirmNightSelection == true && town.selections.size == wake.type.choice) {
+                            button(
+                                executeActionCommand,
+                                msgId,
+                                actor?.roleData?.id ?: ""
+                            )
+                        }
+                    }
                 }
             }
-        }
-    )
+        )
     }
 }
 
@@ -559,51 +492,51 @@ internal fun showDayMenu(
             acc.menuMessageId
         }
         msgId?.let {
-        accounts.update(chatId) {
-            menuMessageId = msgId
-        }
-        bot.editMessageReplyMarkup(
-            ChatId.fromId(chatId),
-            msgId,
-            replyMarkup = inlineKeyboard {
-                if (settings?.hideDayPlayers == true) {
-                    button(
-                        hidePlayersCommand named (if (settings.playersHidden) "👓 Показать игроков" else hidePlayersCommand.name),
-                        msgId
-                    )
-                }
-                val hideRolesMode = getHideRolesMode(game)
-                if (settings?.playersHidden != true) {
-                    row { button(filterCommand named "Фильтр: ${view.desc}", msgId) }
-                    for (player in town.players.sortedBy { it.pos }) {
-                        if (view.filter(player)) {
-                            row {
-                                button(
-                                    (if (settings?.detailedView == true) blankCommand else dayDetailsCommand) named desc(
-                                        player,
-                                        hideRolesMode = hideRolesMode
-                                    ),
-                                    player.pos,
-                                    msgId
-                                )
-                            }
-                            if (settings?.detailedView == true) {
+            accounts.update(chatId) {
+                menuMessageId = msgId
+            }
+            bot.editMessageReplyMarkup(
+                ChatId.fromId(chatId),
+                msgId,
+                replyMarkup = inlineKeyboard {
+                    if (settings?.hideDayPlayers == true) {
+                        button(
+                            hidePlayersCommand named (if (settings.playersHidden) "👓 Показать игроков" else hidePlayersCommand.name),
+                            msgId
+                        )
+                    }
+                    val hideRolesMode = getHideRolesMode(game)
+                    if (settings?.playersHidden != true) {
+                        row { button(filterCommand named "Фильтр: ${view.desc}", msgId) }
+                        for (player in town.players.sortedBy { it.pos }) {
+                            if (view.filter(player)) {
                                 row {
-                                    playerDayDesc(player, msgId, fallMode)
+                                    button(
+                                        (if (settings?.detailedView == true) blankCommand else dayDetailsCommand) named desc(
+                                            player,
+                                            hideRolesMode = hideRolesMode
+                                        ),
+                                        player.pos,
+                                        msgId
+                                    )
+                                }
+                                if (settings?.detailedView == true) {
+                                    row {
+                                        playerDayDesc(player, msgId, fallMode)
+                                    }
                                 }
                             }
                         }
                     }
+                    button(settingsCommand, msgId)
+                    if (settings?.timer == true) {
+                        button(timerCommand)
+                    }
+                    if (!hideRolesMode) {
+                        button(nightCommand, msgId)
+                    }
                 }
-                button(settingsCommand, msgId)
-                if (settings?.timer == true) {
-                    button(timerCommand)
-                }
-                if (!hideRolesMode) {
-                    button(nightCommand, msgId)
-                }
-            }
-        )
+            )
         }
     }
 }

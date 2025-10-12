@@ -34,6 +34,10 @@ object MafiaHandler {
             }
         }
 
+        indexPopups.get(account!!.chatId)?.let {
+
+        }
+
         when (account!!.state) {
             AccountState.Init -> {
                 initCommands()
@@ -596,13 +600,13 @@ object MafiaHandler {
                 showAdmin(bot, chatId, long(1))
             }
             parametrized(hostRequestCommand) {
-                showHostRequests(bot, chatId, long(0), int(1), bool(2))
+                showHostRequests(bot, chatId, long(0), int(1))
             }
             parametrized(hostSettingsCommand) {
-                showHostSettings(bot, chatId, long(0), int(1), bool(2))
+                showHostSettings(bot, chatId, long(0), int(1))
             }
             parametrized(adminSettingsCommand) {
-                showAdminListMenu(bot, chatId, long(0), int(1), bool(2))
+                showAdminListMenu(bot, chatId, long(0), int(1))
             }
             parametrized(timeLimitOnCommand) {
                 bot.sendMsg(
@@ -700,10 +704,10 @@ object MafiaHandler {
                 adminContexts.delete(chatId)
             }
             parametrized(gamesSettingsCommand) {
-                showGameStatusMenu(bot, chatId, long(0), int(1), bool(2))
+                showGameStatusMenu(bot, chatId, long(0), int(1))
             }
             parametrized(hostAdminSettingsCommand) {
-                showHostAdminSettingsMenu(bot, chatId, long(0), int(1), bool(2))
+                showHostAdminSettingsMenu(bot, chatId, long(0), int(1))
             }
             parametrized(terminateGameCommand) {
                 games.get(id(0))?.let { game ->
@@ -773,7 +777,7 @@ object MafiaHandler {
         /** with Game of this host **/
         block({ notNull { games.find { hostId == chatId }.singleOrNull() } }) { game ->
             parametrized(menuKickCommand) {
-                showKickMenu(game, long(0), bot, chatId, int(1), bool(2))
+                showKickMenu(game, long(0), bot, chatId, int(1))
             }
             parametrized(changeHostCommand) {
                 games.update(game.id) {

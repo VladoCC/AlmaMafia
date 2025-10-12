@@ -28,7 +28,6 @@ class Store(query: String) : ParameterStore {
     override fun long(index: Int) = value(index) { toLong() }
     override fun id(index: Int) = value(index) { ObjectId(this) }
     override fun str(index: Int) = value(index) { this }
-    override fun bool(index: Int) = value(index) { toBoolean() }
 
     override fun isInt(index: Int): Boolean {
         return try {
@@ -58,7 +57,6 @@ interface ParameterStore {
     fun long(index: Int): Long
     fun id(index: Int): ObjectId
     fun str(index: Int): String
-    fun bool(index: Int): Boolean
 
     fun isInt(index: Int): Boolean
     fun isLong(index: Int): Boolean
