@@ -646,7 +646,7 @@ object MafiaHandler {
             }
             parametrized(deleteHostCommand) {
                 hostInfos.delete(long(0))
-                showHostSettings(bot, chatId, long(1), int(2))
+                showHostSettings(bot, chatId, long(1), 0)
             }
             parametrized(promoteHostCommand) {
                 accounts.get(long(0))?.let {

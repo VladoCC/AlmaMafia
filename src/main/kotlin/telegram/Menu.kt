@@ -353,6 +353,7 @@ internal fun showChosenHostSettings(bot: Bot, chatId: Long, messageId: Long, hos
                     button(blankCommand named "👇 Выбирать роли")
                     button(canReassignCommand named if (it.canReassign) "On" else "Off", it.chatId, messageId)
                 }
+                button(deleteHostCommand, it.chatId, messageId)
                 if (admins.get(it.chatId) == null) {
                     button(promoteHostCommand, it.chatId, messageId)
                 } else {

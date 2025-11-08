@@ -378,7 +378,6 @@ fun showHostSettings(
             accounts.get(hostInfo.chatId)?.let { acc ->
                 row {
                     button(chooseHostSettingsCommand named ("${index + 1}. ${acc.fullName()}"), messageId, hostInfo.chatId)
-                    button(deleteHostCommand, hostInfo.chatId, messageId, itemsOffset)
                 }
             }
         },
