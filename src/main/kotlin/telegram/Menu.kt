@@ -2,9 +2,12 @@ package org.example.telegram
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
+import com.github.kotlintelegrambot.entities.ParseMode
+import org.bson.types.ObjectId
 import org.example.*
 import org.example.game.Town
 import org.example.game.desc
+import org.example.game.getRoleDesc
 import org.example.game.nightRoleDesc
 import org.example.game.playerDayDesc
 
@@ -40,8 +43,15 @@ internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
     }
 }
 
-internal fun showSettingsMenu(it: HostSettings, chatId: Long, messageId: Long, gameMessageId: Long, bot: Bot, desc: String = "") {
-    val text = "Настройки" +
+internal fun showSettingsMenu(
+    it: HostSettings,
+    chatId: Long,
+    messageId: Long,
+    gameMessageId: Long,
+    bot: Bot,
+    desc: String = ""
+) {
+    val text = "⚙️ Опции" +
             if (desc.isNotBlank()) "\n\nОписание:\n$desc" else ""
     val msgId = if (messageId == -1L) {
         val res = bot.sendMessage(
@@ -63,23 +73,19 @@ internal fun showSettingsMenu(it: HostSettings, chatId: Long, messageId: Long, g
         msgId,
         text = text,
         replyMarkup = inlineKeyboard {
-            /*fun setting(command: Command, state: Boolean) {
-                row {
-                    button(command, messageId, gameMessageId)
-                    button(command named (if (state) "✅" else "❌"), msgId, gameMessageId)
-                }
-            }
-            setting(fallModeCommand, it.fallMode)
-            setting(detailedViewCommand, it.detailedView)
-            setting(doubleColumnNightCommand, it.doubleColumnNight)
-            setting(confirmNightSelectionCommand, it.confirmNightSelection)
-            setting(timerSettingCommand, it.timer)
-            setting(hidePlayersSettingCommand, it.hideDayPlayers)*/
             HostOptions.entries.forEach { entry ->
                 row {
                     button(settingDescCommand named entry.shortName, msgId, gameMessageId, entry.name)
-                    button(hostSettingCommand named (if (entry.current(it)) "✅" else "❌"), msgId, gameMessageId, entry.name)
+                    button(
+                        hostSettingCommand named (if (entry.current(it)) "✅" else "❌"),
+                        msgId,
+                        gameMessageId,
+                        entry.name
+                    )
                 }
+            }
+            if (checks.get(CheckOption.SHOW_TOWN)) {
+                button(shareGameCommand, msgId)
             }
             button(deleteMsgCommand named "Закрыть", msgId)
         }
@@ -115,7 +121,7 @@ internal fun showLobbyMenu(
     return msgId
 }
 
-internal fun showPlayerMenu(
+internal fun showPlayerLobbyMenu(
     chatId: Long,
     messageId: Long,
     bot: Bot,
@@ -148,6 +154,76 @@ internal fun showPlayerMenu(
         menuMessageId = msgId
     }
     return msgId
+}
+
+public fun showPlayerGameMenu(
+    connection: Connection,
+    chat: ChatId,
+    msgId: Long,
+    roleId: RoleId,
+    state: LinkType,
+    game: Game,
+    bot: Bot
+) {
+    val text = when (state) {
+        LinkType.NONE -> "📋 Роли выданы"
+        LinkType.ROLE -> {
+            roles.get(roleId)?.let { role ->
+                val desc = getRoleDesc(role)
+                connections.update(connection.id) {
+                    notified = true
+                }
+                pendings.save(Pending(ObjectId(), game.hostId, game.id))
+                desc
+            }?: "Роль не найдена"
+        }
+        LinkType.INFO -> getGameInfo(game, connection)
+        LinkType.ALIVE -> getAlivePlayerDesc(game)
+        LinkType.REVEAL -> "🏘️ Меню города"
+    }
+    messageLinks.updateMany({
+        messageId == msgId
+                && chatId == connection.playerId
+                && gameId == game.id
+    }) {
+        type = LinkType.ROLE
+    }
+    bot.editMessageText(
+        chat,
+        msgId,
+        text = text,
+        parseMode = ParseMode.HTML,
+        replyMarkup = inlineKeyboard {
+            if (state != LinkType.REVEAL) {
+                LinkType.entries.forEach { menuState ->
+                    if (menuState != state && menuState.showInMenu(connection)) {
+                        button(
+                            playerMenuCommand named menuState.desc,
+                            roleId,
+                            msgId,
+                            menuState
+                        )
+                    }
+                }
+            } else {
+                connection.game?.let { game ->
+                    towns[game.id]?.let { town ->
+                        for (player in town.players.sortedBy { it.pos }) {
+                            row {
+                                button(blankCommand named desc(player, hideRolesMode = false))
+                            }
+                        }
+                    }
+                }
+                button(
+                    playerMenuCommand named "◀️ Меню игрока",
+                    roleId,
+                    msgId,
+                    LinkType.ALIVE
+                )
+            }
+        }
+    )
 }
 
 internal fun showRevealMenu(game: Game, bot: Bot, chatId: Long, messageId: Long) {
@@ -236,7 +312,7 @@ internal fun showHostAdminSettingsMenu(chatId: Long, messageId: Long, bot: Bot) 
         replyMarkup = inlineKeyboard {
             button(blankCommand named "Ведущие")
             hostSettings.find().forEach {
-                button(chooseHostAdminCommand named (it.host?.fullName()?: ""), messageId, it.hostId)
+                button(chooseHostAdminCommand named (it.host?.fullName() ?: ""), messageId, it.hostId)
             }
             button(adminBackCommand, messageId)
         }
@@ -249,11 +325,16 @@ internal fun showChosenSettingsMenu(chatId: Long, messageId: Long, bot: Bot, cho
             ChatId.fromId(chatId),
             messageId,
             replyMarkup = inlineKeyboard {
-                button(blankCommand named "Настройки ${accounts.get(chosenId)?.fullName()?: ""}")
+                button(blankCommand named "Настройки ${accounts.get(chosenId)?.fullName() ?: ""}")
                 HostOptions.entries.forEach { entry ->
                     row {
                         button(changeHostAdminSettingCommand named entry.shortName, messageId, chosenId, entry.name)
-                        button(changeHostAdminSettingCommand named (if (entry.current(settings)) "✅" else "❌"), messageId, chosenId, entry.name)
+                        button(
+                            changeHostAdminSettingCommand named (if (entry.current(settings)) "✅" else "❌"),
+                            messageId,
+                            chosenId,
+                            entry.name
+                        )
                     }
                 }
                 button(adminBackCommand, messageId)
@@ -453,28 +534,7 @@ internal fun showAliveMenu(
     messageId: Long,
     roleId: RoleId
 ) {
-    val desc = if (game.state == GameState.Reveal) {
-        val cons = game.connectionList
-        val count = cons.size
-        "Вживых: $count / $count\n\n" +
-                "Игроки:\n" + cons.sortedBy { it.pos }.joinToString("\n") {
-            "№" + it.pos + " " + it.name()
-        }
-    } else if (game.state == GameState.Game) {
-        val town = towns[game.id]
-        if (town == null) {
-            ""
-        } else {
-            val all = town.players
-            val alive = all.filter { it.alive }.sortedBy { it.pos }
-            "Вживых: ${alive.size} / ${all.size}\n\n" +
-                    "Игроки:\n" + alive.joinToString("\n") {
-                "№" + it.pos + " " + it.name
-            }
-        }
-    } else {
-        ""
-    }
+    val desc = getAlivePlayerDesc(game)
     val chat = ChatId.fromId(con.playerId)
     bot.editMessageText(
         chat,
@@ -492,4 +552,30 @@ internal fun showAliveMenu(
     }) {
         type = LinkType.ALIVE
     }
+}
+
+private fun getAlivePlayerDesc(game: Game): String {
+    val desc = if (game.state == GameState.REVEAL) {
+        val cons = game.connectionList
+        val count = cons.size
+        "Вживых: $count / $count\n\n" +
+                "Игроки:\n" + cons.sortedBy { it.pos }.joinToString("\n") {
+            "№" + it.pos + " " + it.name()
+        }
+    } else if (game.state == GameState.GAME) {
+        val town = towns[game.id]
+        if (town == null) {
+            ""
+        } else {
+            val all = town.players
+            val alive = all.filter { it.alive }.sortedBy { it.pos }
+            "Вживых: ${alive.size} / ${all.size}\n\n" +
+                    "Игроки:\n" + alive.joinToString("\n") {
+                "№" + it.pos + " " + it.name
+            }
+        }
+    } else {
+        ""
+    }
+    return desc
 }

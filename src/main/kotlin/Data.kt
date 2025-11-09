@@ -6,6 +6,7 @@ import org.bson.types.ObjectId
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.*
+import java.time.Duration
 
 data class Account(
     @BsonId val id: ObjectId,
@@ -31,7 +32,7 @@ typealias GameId = ObjectId
 data class Game(
     @BsonId val id: GameId,
     var hostId: Long,
-    var state: GameState = GameState.Connect,
+    var state: GameState = GameState.CONNECT,
     val createdAt: Date = Date(),
     var playedAt: Date? = null,
     val creatorId: Long = hostId,
@@ -45,8 +46,9 @@ data class Game(
     val messages: List<MessageLink> get() = messageLinks.find(id) { gameId == it }
     val pairingList: List<Pairing> get() = pairings.find(id) { gameId == it }
     val connectionList: List<Connection> get() = connections.find(id) { gameId == it}
+    val shares: List<GameShare> get() = gameShares.find(id) { gameId == it }
 
-    fun name() = (if (state == GameState.Game) "🎮" else "👥") + (accounts.get(hostId)?.fullName()
+    fun name() = (if (state == GameState.GAME) "🎮" else "👥") + (accounts.get(hostId)?.fullName()
         ?: "") + " (" + dateFormat.format(
         ZonedDateTime.ofInstant(
             (playedAt ?: createdAt).toInstant(),
@@ -71,6 +73,7 @@ data class Connection(
 
     val game: Game? get() = games.get(gameId)
     val player: Account? get() = if (bot) null else accounts.get(playerId)
+    val share: GameShare? get() = gameShares.get(id)
 }
 
 data class Pending(
@@ -373,4 +376,12 @@ data class Reassignment(
 ) {
     val game: Game? get() = games.get(gameId)
     val connection: Connection? get() = connections.get(connectionId)
+}
+
+data class GameShare (
+    val connectionId: ConnectionId,
+    val gameId: GameId
+) {
+    val connection: Connection? get() = connections.get(connectionId)
+    val game: Game? get() = games.get(gameId)
 }

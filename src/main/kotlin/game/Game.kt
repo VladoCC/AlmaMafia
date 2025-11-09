@@ -12,7 +12,7 @@ import org.example.lua.NoneAction
 import org.example.telegram.*
 import org.example.telegram.showLobbyMenu
 import org.example.telegram.showNightRoleMenu
-import org.example.telegram.showPlayerMenu
+import org.example.telegram.showPlayerLobbyMenu
 import java.util.*
 
 internal fun initGame(game: Game?, path: String, chatId: Long, messageId: Long, bot: Bot) {
@@ -84,7 +84,7 @@ fun startGame(
 
             games.updateMany(
                 { hostId == chatId },
-                { state = GameState.Game }
+                { state = GameState.GAME }
             )
             bot.sendMessage(
                 ChatId.fromId(chatId),
@@ -156,21 +156,38 @@ internal fun deleteGame(game: Game, bot: Bot) {
     connections.deleteMany {
         gameId == game.id
     }
-    game.messages.forEach {
-        bot.deleteMessage(ChatId.fromId(it.chatId), it.messageId)
-    }
+
+    resetGame(game, bot)
+
     kicks.deleteMany { gameId == game.id }
     orders.deleteMany { gameId == game.id }
-    pendings.deleteMany { gameId == game.id }
     setups.deleteMany { gameId == game.id }
-    pairings.deleteMany { gameId == game.id }
     modes.deleteMany { gameId == game.id }
     roles.deleteMany { gameId == game.id }
     types.deleteMany { gameId == game.id }
-    messageLinks.deleteMany { gameId == game.id }
-    towns.remove(game.id)
     deleteGameTimers(bot, game.id)
 }
+
+public fun resetGame(
+    game: Game,
+    bot: Bot
+) {
+    if (checks.get(CheckOption.GAME_MESSAGES)) {
+        game.messages.forEach { msg ->
+            bot.deleteMessage(
+                ChatId.fromId(msg.chatId),
+                msg.messageId
+            )
+        }
+    }
+    pendings.deleteMany { host == game.hostId }
+    //setups.deleteMany { gameId == game.id }
+    pairings.deleteMany { gameId == game.id }
+    towns.remove(game.id)
+    gameShares.deleteMany { gameId == game.id }
+    messageLinks.deleteMany { gameId == game.id }
+}
+
 
 private fun sendPlayersToMenu(game: Game, bot: Bot) {
     connections.find { gameId == game.id }.forEach {
@@ -225,13 +242,13 @@ internal fun hostSetPlayerNum(
                     this.pos = pos
                 }
                 accounts.get(con.playerId)?.let { acc ->
-                    showPlayerMenu(acc.chatId, acc.menuMessageId, bot, connectionId, pos)
+                    showPlayerLobbyMenu(acc.chatId, acc.menuMessageId, bot, connectionId, pos)
                 }
             }
         }
     }
     games.update(game.id) {
-        state = GameState.Connect
+        state = GameState.CONNECT
     }
     showLobbyMenu(chatId, messageId, game, bot)
 }
@@ -261,7 +278,7 @@ internal fun setPlayerNum(
         Const.Message.numSaved
     )
     if (res.isSuccess) {
-        bombs.save(
+        timedMessages.save(
             TimedMessage(
                 ObjectId(),
                 chatId,
@@ -302,7 +319,7 @@ internal fun joinGame(
         "Подключение к игре выполнено.",
         replyMarkup = mafiaKeyboard(chatId)
     )
-    val msgId = showPlayerMenu(chatId, -1L, bot, id)
+    val msgId = showPlayerLobbyMenu(chatId, -1L, bot, id)
     accounts.update(chatId) {
         menuMessageId = msgId
     }

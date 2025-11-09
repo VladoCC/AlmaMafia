@@ -214,6 +214,12 @@ data class Town(
         }
         blockers = blockers.sortedBy { it.createdAt }.toMutableSet()
 
+        //        kill(alibi) -> (cancel(heal(target)) && kill(target))
+        //                      /\                        /\
+        //      block(alibi) -- |         heal(target) -- |
+        //                      \/                        \/
+        //                      heal(target) ->           kill(target)
+
         // processing actions that do not depend on probable blocked actions
         fun handleFreeBlocks() {
             val processed = mutableSetOf<Action>()
@@ -221,18 +227,20 @@ data class Town(
                 processed.clear()
 
                 blockers.forEach { blocker ->
-                    if (blocker !in blocked && blocker.dependencies.intersect(blocked).isEmpty()) {
+                    val free = blocker !in blocked && blocker.dependencies.intersect(blocked).isEmpty()
+                    val skipped = blocker.skippedBy != null || blocker.dependencies.any { it.skippedBy != null }
+                    if (free || skipped) {
                         processed.add(blocker)
 
                         dependants[blocker]?.forEach { action ->
                             dependencies[action]?.remove(blocker)
-                            if (dependencies[action]?.size == 0) {
+                            if (dependencies[action]?.isEmpty() == true) {
                                 dependencies.remove(action)
                                 blocked.remove(action)
                             }
                         }
 
-                        if (blocker.skippedBy != null || blocker.dependencies.any { it.skippedBy != null }) {
+                        if (skipped) {
                             dependants.remove(blocker)
                             return@forEach
                         }
@@ -317,7 +325,9 @@ data class Town(
             // strategy 2: cancel has second priority
             val processed = blockers.filter { it is CancelAction }.map {
                 dependants[it]?.forEach { dep ->
-                    dep.skippedBy = it
+                    if (it.skippedBy == null) {
+                        dep.skippedBy = it
+                    }
                     dependencies.remove(dep)
                     blocked.remove(dep)
                 }
@@ -336,7 +346,9 @@ data class Town(
             while (blockers.isNotEmpty()) {
                 val current = blockers.first()
                 dependants[current]?.forEach { dep ->
-                    dep.skippedBy = current
+                    if (current.skippedBy == null) {
+                        dep.skippedBy = current
+                    }
                     dependencies.remove(dep)
                     blocked.remove(dep)
                 }
@@ -374,8 +386,8 @@ data class Town(
         game: Game
     ) {
         day++
-        endNight()
         val fullLog = fullLog(this)
+        endNight()
         if (fullLog.isNotBlank()) {
             bot.sendMessage(
                 ChatId.fromId(chatId),

@@ -49,7 +49,7 @@ const val roleDescLen = 280
 val numbers = arrayOf("0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣")
 val notKnowingTeams = arrayOf("none", "city")
 val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
-val inGameStates = setOf(GameState.Type, GameState.Reveal, GameState.Game)
+val inGameStates = setOf(GameState.TYPE, GameState.REVEAL, GameState.GAME)
 
 val resetAccount: Account.() -> Unit = {
     state = AccountState.Menu
@@ -91,10 +91,10 @@ fun main() {
                 try {
                     val now = Date()
                     val filter: TimedMessage.() -> Boolean = { date.before(now) }
-                    bombs.find(filter).forEach {
+                    timedMessages.find(filter).forEach {
                         bot.deleteMessage(ChatId.fromId(it.chatId), it.messageId)
                     }
-                    bombs.deleteMany(filter)
+                    timedMessages.deleteMany(filter)
                 } catch (e: Exception) {
                     log.error("Unable to process bomb messages", e)
                 }
@@ -128,9 +128,9 @@ fun main() {
                     set.forEach {
                         accounts.get(it.host)?.let {
                             games.find { hostId == it.chatId }.singleOrNull()?.let { game ->
-                                if (game.state == GameState.Connect) {
+                                if (game.state == GameState.CONNECT) {
                                     showLobbyMenu(it.chatId, it.menuMessageId, game, bot)
-                                } else if (game.state == GameState.Reveal) {
+                                } else if (game.state == GameState.REVEAL) {
                                     showRevealMenu(game, bot, it.chatId, it.menuMessageId)
                                 }
                             }
@@ -272,7 +272,7 @@ fun selectAd(game: Game, connections: List<Connection>, bot: Bot, ad: Message) {
             ad.text
         )
         if (res.isSuccess) {
-            bombs.save(
+            timedMessages.save(
                 TimedMessage(
                     ObjectId(),
                     chatId,
@@ -627,9 +627,9 @@ fun fullLog(town: Town): String {
                     "Кто: $who\n" +
                     "Действие: $action\n" +
                     "Цель: $target\n" +
-                    (if (it is InfoAction) "Результат: ${it.text}" else "") +
-                    (if (dep != null) "Реакция на: $dep" else "") +
-                    (if (skipper != null) "Отменено ролью: $skipper" else "")
+                    (if (it is InfoAction) "Результат: ${it.text}\n" else "") +
+                    (if (dep != null) "Реакция на: $dep\n" else "") +
+                    (if (skipper != null) "Отменено ролью: $skipper\n" else "")
         }.joinToString("\n\n")
         text
     } else {
