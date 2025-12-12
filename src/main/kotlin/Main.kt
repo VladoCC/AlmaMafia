@@ -46,6 +46,8 @@ const val timerMaxTimeMin = 5L
 const val timerInactiveTimeMin = 2L
 const val roleNameLen = 32
 const val roleDescLen = 280
+const val statusScriptName = "[status]"
+val deleteForceLeadConfirmAfter: Duration = Duration.ofSeconds(10)
 val numbers = arrayOf("0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣")
 val notKnowingTeams = arrayOf("none", "city")
 val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
@@ -211,6 +213,39 @@ fun main() {
                 delay(60000)
             }
         }
+
+        launch {
+            while (true) {
+                try {
+                    val set = mutableSetOf<NightMessageUpdate>()
+                    nightMessageUpdates.find().forEach { set.add(it) }
+                    if (set.isNotEmpty()) {
+                        nightMessageUpdates.deleteMany { this in set }
+                        set.forEach { update ->
+                            update.action?.let { action ->
+                                action.actors.forEach { actor ->
+                                    actor.connection?.nightPlayerMessage?.let { msg ->
+                                        towns[action.gameId]?.let { town ->
+                                            showAutoNightPlayerMenu(
+                                                town.night[action.wakeId],
+                                                town,
+                                                actor,
+                                                msg.chatId,
+                                                msg.messageId,
+                                                bot
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    log.error("Unable to process auto-night updates", e)
+                }
+                delay(5000)
+            }
+        }
     }
 }
 
@@ -294,13 +329,13 @@ internal fun updateSettingsView(
     messageId: Long,
     gameMessageId: Long,
     game: Game,
-    town: Town,
+    town: Town?,
     bot: Bot,
     update: HostSettings.() -> Unit
 ) {
     hostSettings.update(hostId, update)
     hostSettings.get(hostId)?.let { settings ->
-        if (gameMessageId != -1L) {
+        if (gameMessageId != -1L && town != null) {
             showDayMenu(town, hostId, gameMessageId, bot, game)
         }
         showSettingsMenu(settings, hostId, messageId, gameMessageId, bot)
@@ -316,10 +351,12 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
             messageId,
             replyMarkup = inlineKeyboard {
                 button(blankCommand named "Детали")
-                button(dayDetailsCommand named desc(
-                    player,
-                    hideRolesMode = getHideRolesMode(games.get(town.gameId))
-                ), playerPos, messageId)
+                button(
+                    dayDetailsCommand named desc(
+                        player,
+                        noRoles = getHideRolesMode(games.get(town.gameId))
+                    ), playerPos, messageId
+                )
                 row {
                     playerDayDesc(player, messageId, fallMode)
                 }
@@ -556,43 +593,55 @@ fun updateSetup(
         }
         types.deleteMany { gameId == game.id }
         data.type.forEach {
-            types.save(Type(ObjectId(), game.id, it.name, it.choice))
+            types.save(
+                Type(
+                    ObjectId(),
+                    game.id,
+                    it.name,
+                    it.choice,
+                    it.displayName
+                )
+            )
         }
         orders.deleteMany { gameId == game.id }
         data.order.forEachIndexed { index, s ->
             orders.save(TypeOrder(ObjectId(), game.id, s, index))
+        }
+        data.teamDisplayNames.forEach {
+            teamNames.save(TeamName(ObjectId(), game.id, it.key, it.value))
         }
     } catch (e: Exception) {
         log.error("Unable to update setups for game: $game, path: $path", e)
     }
 }
 
-fun shortLog(town: Town): String {
+fun shortLog(town: Town, hideRoles: Boolean = false): String {
     return if (town.actions.isNotEmpty()) {
         val set = mutableSetOf<Pair<KClass<out Event>, Int>>()
         val text =
-            town.actions.asSequence().filter { it.skippedBy == null }.map { it.events() }.flatten().sortedBy { it.pos }.map {
-                val pair = it::class to it.pos
-                if (pair !in set) {
-                    set.add(pair)
-                    "${it.symbol()} Игрок ${desc(town.playerMap[it.pos], " - ", false)} ${it.desc()}"
-                } else {
-                    null
-                }
-            }.filterNotNull().joinToString("\n")
+            town.actions.asSequence().filter { it.skippedBy == null }.map { it.events() }.flatten().sortedBy { it.pos }
+                .map {
+                    val pair = it::class to it.pos
+                    if (pair !in set) {
+                        set.add(pair)
+                        "${it.symbol()} Игрок ${desc(town.playerMap[it.pos], " - ", false, hideRoles)} ${it.desc()}"
+                    } else {
+                        null
+                    }
+                }.filterNotNull().joinToString("\n")
         text
     } else {
         ""
     }
 }
 
-fun fullLog(town: Town): String {
+fun fullLog(town: Town, hideRoles: Boolean): String {
     return if (town.actions.isNotEmpty()) {
         val text = town.actions.filter {
             (it.skippedBy == null || !it.skippedBy!!.master)
                     && it.dependencies.all {
-                        it.skippedBy == null || !it.skippedBy!!.master
-                    }
+                it.skippedBy == null || !it.skippedBy!!.master
+            }
         }.mapIndexed { i, it ->
             val action = it.desc()
 
@@ -631,7 +680,7 @@ fun fullLog(town: Town): String {
                     (if (dep != null) "Реакция на: $dep\n" else "") +
                     (if (skipper != null) "Отменено ролью: $skipper\n" else "")
         }.joinToString("\n\n")
-        text
+        if (hideRoles) "<span class=\"tg-spoiler\">$text</span>" else text
     } else {
         ""
     }
@@ -683,7 +732,7 @@ fun showRoles(
     game: Game
 ) {
     val players = connections.find { gameId == game.id }
-    val pairs = pairings.find { gameId == game.id }
+    pairings.find { gameId == game.id }
     val gameSetups = setups.find { gameId == game.id }
     val keyboard = inlineKeyboard {
         gameSetups.sortedBy { it.index }.chunked(2).forEach {
@@ -805,7 +854,11 @@ fun menuButtons(
         games.find { actual }.forEach {
             accounts.get(it.hostId)?.let { host ->
                 row {
-                    button(joinCommand named (if (it.state in inGameStates) "🎮" else "👥") + host.fullName(), it.id, messageId)
+                    button(
+                        joinCommand named (if (it.state in inGameStates) "🎮" else "👥") + host.fullName(),
+                        it.id,
+                        messageId
+                    )
                 }
             }
         }

@@ -85,6 +85,17 @@ enum class HostOptions(val shortName: String, val fullName: String, val current:
         {
             hideRolesMode = !hideRolesMode
         }
+    ),
+    AutoNight(
+        "🤖 Автоночь",
+        "Проведение ночи без ведущего",
+        { autoNight?.enabled == true },
+        {
+            if (autoNight == null) {
+                autoNight = HostSettings.AutoNightSettings()
+            }
+            autoNight?.enabled = !autoNight!!.enabled
+        }
     )
 }
 
@@ -107,4 +118,9 @@ enum class LinkType(val desc: String, val showInMenu: (connection: Connection) -
     INFO("ℹ️ Информация об игре"),
     ALIVE("👥 Живые игроки", { checks.get(CheckOption.ONE_MSG_PLAYER_INFO) }),
     REVEAL("Меню города ▶️", { checks.get(CheckOption.SHOW_TOWN) && it.share != null })
+}
+
+
+enum class AutoNightInputType {
+    SINGLE, TEAM
 }

@@ -34,7 +34,7 @@ class Store(query: String) : ParameterStore {
         return try {
             get(index).toInt()
             true
-        } catch (e: NumberFormatException) {
+        } catch (_: NumberFormatException) {
             false
         }
     }
@@ -43,7 +43,7 @@ class Store(query: String) : ParameterStore {
         return try {
             get(index).toLong()
             true
-        } catch (e: NumberFormatException) {
+        } catch (_: NumberFormatException) {
             false
         }
     }

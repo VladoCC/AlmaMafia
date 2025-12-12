@@ -6,7 +6,9 @@ import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
 import org.example.*
 import org.example.game.Town
+import org.example.game.WakeStatus
 import org.example.game.desc
+import org.example.game.executeNightAction
 import org.example.game.getRoleDesc
 import org.example.game.nightRoleDesc
 import org.example.game.playerDayDesc
@@ -44,7 +46,7 @@ internal fun showAdMenu(chat: ChatId.Id, bot: Bot) {
 }
 
 internal fun showSettingsMenu(
-    it: HostSettings,
+    settings: HostSettings,
     chatId: Long,
     messageId: Long,
     gameMessageId: Long,
@@ -77,10 +79,30 @@ internal fun showSettingsMenu(
                 row {
                     button(settingDescCommand named entry.shortName, msgId, gameMessageId, entry.name)
                     button(
-                        hostSettingCommand named (if (entry.current(it)) "✅" else "❌"),
+                        hostSettingCommand named (if (entry.current(settings)) "✅" else "❌"),
                         msgId,
                         gameMessageId,
                         entry.name
+                    )
+                }
+            }
+
+            if (HostOptions.AutoNight.current(settings)) {
+                val setting = settings.autoNight
+                row {
+                    button(autoSingLimDescCommand, msgId, gameMessageId)
+                    button(
+                        autoSingLimSelCommand named (setting?.actionSingleLimit?.toSeconds()?.pretty() ?: "Ошибка"),
+                        msgId,
+                        gameMessageId
+                    )
+                }
+                row {
+                    button(autoTeamLimDescCommand, msgId, gameMessageId)
+                    button(
+                        autoTeamLimSelCommand named (setting?.actionTeamLimit?.toSeconds()?.pretty() ?: "Ошибка"),
+                        msgId,
+                        gameMessageId
                     )
                 }
             }
@@ -156,7 +178,7 @@ internal fun showPlayerLobbyMenu(
     return msgId
 }
 
-public fun showPlayerGameMenu(
+fun showPlayerGameMenu(
     connection: Connection,
     chat: ChatId,
     msgId: Long,
@@ -175,8 +197,9 @@ public fun showPlayerGameMenu(
                 }
                 pendings.save(Pending(ObjectId(), game.hostId, game.id))
                 desc
-            }?: "Роль не найдена"
+            } ?: "Роль не найдена"
         }
+
         LinkType.INFO -> getGameInfo(game, connection)
         LinkType.ALIVE -> getAlivePlayerDesc(game)
         LinkType.REVEAL -> "🏘️ Меню города"
@@ -186,7 +209,7 @@ public fun showPlayerGameMenu(
                 && chatId == connection.playerId
                 && gameId == game.id
     }) {
-        type = LinkType.ROLE
+        type = state
     }
     bot.editMessageText(
         chat,
@@ -210,7 +233,7 @@ public fun showPlayerGameMenu(
                     towns[game.id]?.let { town ->
                         for (player in town.players.sortedBy { it.pos }) {
                             row {
-                                button(blankCommand named desc(player, hideRolesMode = false))
+                                button(blankCommand named desc(player, noRoles = false))
                             }
                         }
                     }
@@ -361,6 +384,31 @@ internal fun showKickMenu(game: Game, messageId: Long, bot: Bot, chatId: Long) {
     )
 }
 
+internal fun showNightActionMenu(
+    town: Town,
+    wake: Wake,
+    bot: Bot,
+    chatId: Long,
+    messageId: Long
+) {
+    val text = executeNightAction(town, wake)
+    bot.editMessageText(
+        ChatId.fromId(chatId),
+        messageId,
+        text = text,
+        replyMarkup = inlineKeyboard {
+            row {
+                button(cancelActionCommand, messageId)
+                if (town.index >= town.night.size) {
+                    button(dayCommand, messageId)
+                } else {
+                    button(nextRoleCommand, messageId)
+                }
+            }
+        }
+    )
+}
+
 internal fun showNightRoleMenu(
     town: Town,
     chatId: Long,
@@ -376,6 +424,7 @@ internal fun showNightRoleMenu(
     } else {
         messageId
     }
+    nightHostMessages.save(NightHostMessage(chatId, msgId, town.gameId))
     val wake = if (town.night.size > town.index) town.night[town.index] else null
     if (wake == null) {
         bot.editMessageText(
@@ -407,7 +456,7 @@ internal fun showNightRoleMenu(
                 val settings = accounts.get(chatId)?.settings
                 fun KeyboardContext.RowContext.selectButton(it: Person) {
                     button(
-                        selectCommand named ((if (it.pos in town.selections) "✅ " else "") + desc(it)),
+                        selectCommand named ((if (it.pos in wake.selections) "✅ " else "") + desc(it)),
                         it.pos,
                         msgId,
                         actor?.roleData?.id ?: ""
@@ -435,9 +484,9 @@ internal fun showNightRoleMenu(
                     if (town.actions.isNotEmpty()) {
                         button(cancelActionCommand, msgId)
                     }
-                    if (town.selections.isEmpty()) {
+                    if (wake.selections.isEmpty()) {
                         button(skipRoleCommand, msgId)
-                    } else if (settings?.confirmNightSelection == true && town.selections.size == wake.type.choice) {
+                    } else if (settings?.confirmNightSelection == true && wake.filled()) {
                         button(
                             executeActionCommand,
                             msgId,
@@ -447,6 +496,173 @@ internal fun showNightRoleMenu(
                 }
             }
         }
+    )
+}
+
+internal fun showAutoNightHostMenu(
+    town: Town,
+    chatId: Long,
+    bot: Bot,
+    messageId: Long
+) {
+    val chat = ChatId.fromId(chatId)
+    val msgId = if (messageId == -1L) {
+        bot.sendMessage(
+            chat,
+            "🤖 Меню авто-ночи:"
+        ).get().messageId
+    } else {
+        messageId
+    }
+    nightHostMessages.save(NightHostMessage(chatId, msgId, town.gameId))
+    bot.editMessageReplyMarkup(
+        chat,
+        msgId,
+        replyMarkup = inlineKeyboard {
+            button(blankCommand named "Статус ролей")
+            town.night.forEach { wake ->
+                row {
+                    button(blankCommand named wake.type.displayName)
+                    button(blankCommand named wake.status.desc())
+                }
+            }
+            button(autoNightUpdCommand, msgId)
+            button(dayCommand, msgId)
+        }
+    )
+}
+
+internal fun showAutoNightPrepMenu(
+    actorId: AutoNightActorId,
+    role: Role,
+    chatId: Long,
+    bot: Bot
+): Long {
+    val res = bot.sendMessage(
+        ChatId.fromId(chatId),
+        "Ведущий начал авто-ночь. Нажмите кнопку ниже, когда  ведущий разбудит вашу роль.\n" +
+                "Напоминание: ваша роль - <span class=\"tg-spoiler\">${
+                    (role.displayName + " ").padEnd(
+                        roleNameLen,
+                        '_'
+                    )
+                }</span>",
+        parseMode = ParseMode.HTML
+    )
+    if (res.isSuccess) {
+        val msgId = res.get().messageId
+        bot.editMessageReplyMarkup(
+            ChatId.fromId(chatId),
+            msgId,
+            replyMarkup = inlineKeyboard {
+                button(autoNightPlayCommand, msgId, actorId)
+            }
+        )
+        return msgId
+    }
+    return -1L
+}
+
+internal fun showAutoNightPlayerMenu(
+    wake: Wake,
+    town: Town,
+    actor: AutoNightActor,
+    chatId: Long,
+    messageId: Long,
+    bot: Bot
+) {
+    val actors = actor.action?.actors
+    val players = town.players.filter { it.alive }.sortedBy { it.pos }
+    val leader = actors?.firstOrNull { it.leader }?.connection?.pos
+    val text = if (wake.status == WakeStatus.action()) {
+        nightRoleDesc(wake) +
+                if ((actors?.size ?: 0) > 1)
+                    "\n\n" +
+                            actors?.joinToString("\n") { actor ->
+                                town.playerMap[actor.connection?.pos]?.let { person ->
+                                    if (actor.selections.isNotEmpty()) {
+                                        "Игрок " + person.pos + ". " + person.name + " выбрал:\n" +
+                                                actor.selections.sortedBy { it.selection }
+                                            .mapNotNull { sel ->
+                                                town.playerMap[sel.selection]
+                                                    ?.let { "  -  " + it.pos.toString() + " - " + it.name }
+                                            }.joinToString("\n")
+                                    } else {
+                                        ""
+                                    }
+                                } ?: ""
+                            }.let { if (it?.isNotBlank() == true) it + "\n\n" else it } +
+                            "<b>" + (
+                            if (actor.leader)
+                                "Вы принимаете решение"
+                            else "Решение принимает: " +
+                                    (leader?.let { "$it - ${town.playerMap[it]?.name}" } ?: "Игрок не указан")
+                            ) +
+                            "</b>"
+                else ""
+    } else {
+        wake.status.result()
+    }
+    bot.editMessageText(
+        ChatId.fromId(chatId),
+        messageId,
+        text = text,
+        parseMode = ParseMode.HTML,
+        replyMarkup =
+            if (wake.status == WakeStatus.action())
+                inlineKeyboard {
+                    val current = actor.selections.map { it.selection }.toSet()
+                    val amounts =
+                        actors?.map { it.selections.map { sel -> sel.selection } }?.flatten()?.groupingBy { it }
+                            ?.eachCount()
+
+                    fun KeyboardContext.RowContext.selectButton(it: Person) {
+                        button(
+                            selectTargetCommand named (
+                                    (if (it.pos in current) "✅ " else "") +
+                                            (if ((actors?.size ?: 0) > 1) amounts?.get(it.pos)?.pretty()
+                                                ?: "" else "") +
+                                            desc(it, noRoles = true)),
+                            messageId,
+                            wake.id,
+                            it.pos
+                        )
+                    }
+                    doubleColumnView(players).default { button(blankCommand) }
+                        .build { person ->
+                            selectButton(person)
+                        }
+
+                    if ((actors?.size ?: 0) > 1) {
+                        leader?.let {
+                            town.playerMap[it]?.let { person ->
+                                button(
+                                    blankCommand
+                                            named (
+                                            if (actor.leader)
+                                                "🫡 Вы принимаете решение"
+                                            else
+                                                "➡️ Лидер: №${person.pos} - ${person.name}"
+                                            )
+                                )
+                            }
+                        }
+                    }
+
+                    row {
+                        if (actor.leader) {
+                            button(autoNightSkipCommand, messageId, wake.id)
+                            if (wake.type.choice == current.size) {
+                                button(autoNightDoneCommand, messageId, wake.id)
+                            } else if (current.isNotEmpty()) {
+                                button(blankCommand named if (wake.type.choice < current.size) "🔻 Слишком много" else "🔺 Слишком мало")
+                            }
+                        } else {
+                            button(forceLeadCommand, messageId, wake.id)
+                        }
+                    }
+                }
+            else inlineKeyboard { }
     )
 }
 
@@ -496,7 +712,7 @@ internal fun showDayMenu(
                             button(
                                 (if (settings?.detailedView == true) blankCommand else dayDetailsCommand) named desc(
                                     player,
-                                    hideRolesMode = hideRolesMode
+                                    noRoles = hideRolesMode
                                 ),
                                 player.pos,
                                 msgId
@@ -514,8 +730,14 @@ internal fun showDayMenu(
             if (settings?.timer == true) {
                 button(timerCommand)
             }
-            if (!hideRolesMode) {
-                button(nightCommand, msgId)
+
+            row {
+                if (!hideRolesMode) {
+                    button(nightCommand, msgId)
+                }
+                if (settings?.autoNight?.enabled == true) {
+                    button(autoNightCommand, msgId)
+                }
             }
         }
         bot.editMessageReplyMarkup(

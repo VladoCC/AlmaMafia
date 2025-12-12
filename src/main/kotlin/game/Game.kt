@@ -65,7 +65,8 @@ fun startGame(
                             con.pos,
                             con.name(),
                             role,
-                            role.defaultTeam
+                            role.defaultTeam,
+                            con.id
                         )
                     } else {
                         null
@@ -168,7 +169,7 @@ internal fun deleteGame(game: Game, bot: Bot) {
     deleteGameTimers(bot, game.id)
 }
 
-public fun resetGame(
+fun resetGame(
     game: Game,
     bot: Bot
 ) {
@@ -186,6 +187,28 @@ public fun resetGame(
     towns.remove(game.id)
     gameShares.deleteMany { gameId == game.id }
     messageLinks.deleteMany { gameId == game.id }
+    deleteNightPlayerMenus(game, bot)
+    game.nightHostMessage?.let { msg ->
+        bot.deleteMessage(ChatId.fromId(msg.chatId), msg.messageId)
+        nightHostMessages.delete(msg.chatId)
+    }
+}
+
+internal fun deleteNightPlayerMenus(game: Game, bot: Bot) {
+    nightMessageUpdates.deleteMany { gameId == game.id }
+    game.nightPlayerMessageList.forEach {
+        bot.deleteMessage(
+            ChatId.fromId(it.chatId),
+            it.messageId
+        )
+    }
+    nightPlayerMessages.deleteMany { gameId == game.id }
+    val actions = autoNightActions.find { gameId == game.id }.map { it.id }.toSet()
+    autoNightSelections.deleteMany { actionId in actions }
+    autoNightActors.deleteMany { actionId in actions }
+    actions.forEach {
+        autoNightActions.delete(it)
+    }
 }
 
 
@@ -325,12 +348,12 @@ internal fun joinGame(
     }
 }
 
-internal fun desc(player: Person?, sep: String = ". ", icons: Boolean = true, hideRolesMode: Boolean = false) = if (player != null)
+internal fun desc(player: Person?, sep: String = ". ", icons: Boolean = true, noRoles: Boolean = false) = if (player != null)
     "${player.pos}$sep" +
             (if (!icons) "" else if (player.protected) "⛑️" else if (player.alive) "" else "☠️") +
             (if (!icons) "" else if (player.fallCount > 0) numbers[player.fallCount % numbers.size] else "") +
             " ${player.name}" +
-            if (hideRolesMode) "" else " (${player.roleData.displayName})"
+            if (noRoles) "" else " (${player.roleData.displayName})"
 else "Неизвестный игрок"
 
 internal fun nightRoleDesc(wake: Wake): String {
@@ -342,7 +365,7 @@ internal fun nightRoleDesc(wake: Wake): String {
         .joinToString(", ") { it.displayName } + "\n" +
             "Игроки: " + alive.joinToString(", ") { desc(it, " - ") } + "\n" +
             "Действие: " + action +
-            if (alive.isNotEmpty()) "\n\nВыберите ${wake.type.choice} игроков:" else ""
+            if (alive.isNotEmpty()) "\n\nВыберите ${wake.type.choice} игроков." else ""
     return text
 }
 
@@ -379,37 +402,38 @@ internal fun nightSelection(
     messageId: Long,
     roleId: RoleId
 ) {
-    if (num in town.selections) {
-        town.selections.remove(num)
-    } else {
-        town.selections.add(num)
-    }
     if (town.night.size > town.index) {
         val wake = town.night[town.index]
+        if (num in wake.selections) {
+            wake.selections.remove(num)
+        } else {
+            wake.selections.add(num)
+        }
         if (checks.get(CheckOption.CHECK_ROLE) && wake.actor()?.roleData?.id != roleId) {
             return
         }
-        if (wake.type.choice <= town.selections.size) {
+        if (wake.filled()) {
             val settings = accounts.get(chatId)?.settings
             if (settings?.confirmNightSelection == true) {
                 showNightRoleMenu(town, chatId, bot, messageId)
             } else {
-                executeNightAction(town, wake, bot, chatId, messageId)
+                showNightActionMenu(town, wake, bot, chatId, messageId)
+                town.index++
             }
         } else {
             showNightRoleMenu(town, chatId, bot, messageId)
         }
+    } else {
+        log.error("Unable to process night selection, index out of bounds: ${town.index} / ${town.night.size}")
     }
 }
 
 internal fun executeNightAction(
     town: Town,
     wake: Wake,
-    bot: Bot,
-    chatId: Long,
-    messageId: Long
-) {
-    val players = town.selections.mapNotNull { town.playerMap[it] }
+    hideRoles: Boolean = false
+): String {
+    val players = wake.selections.mapNotNull { town.playerMap[it] }
     val script = scripts[town.gameId]?.get(wake.players.first().roleData.name)
     val priority =
         wake.players.filter { it.alive }.maxOfOrNull { it.roleData.priority } ?: 1
@@ -418,14 +442,15 @@ internal fun executeNightAction(
             .map { it.pos }
     if (script != null) {
         try {
-            script.action(players, LuaInterface(actors, players, town)) { ret ->
+            return script.action(players, LuaInterface(actors, players, town)) { ret ->
                 val actorsSet = actors.toSet()
                 val text = ret.actions.map { res ->
                     val start =
                         res.desc() + " " + res.selection.joinToString {
                             desc(
                                 it,
-                                " - "
+                                " - ",
+                                noRoles = hideRoles
                             )
                         } + ": "
                     val text = if (res is InfoAction) {
@@ -486,32 +511,20 @@ internal fun executeNightAction(
                     }
                     return@map text
                 }.filterNotNull().joinToString("\n")
-                town.index++
-                bot.editMessageText(
-                    ChatId.fromId(chatId),
-                    messageId,
-                    text = if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing,
-                    replyMarkup = inlineKeyboard {
-                        row {
-                            button(cancelActionCommand, messageId)
-                            if (town.index >= town.night.size) {
-                                button(dayCommand, messageId)
-                            } else {
-                                button(nextRoleCommand, messageId)
-                            }
-                        }
-                    }
-                )
-            }
+                return@action if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing
+            }?: "Ошибка выполнения действия роли."
         } catch (e: Exception) {
             log.error("Unable to process night action, script: $script, targets: $players", e)
         }
     }
+    return "Ошибка выполнения действия роли."
 }
 
 internal fun skipNightRole(town: Town, chatId: Long, messageId: Long, bot: Bot) {
+    if (town.index < town.night.size) {
+        town.night[town.index].selections.clear()
+    }
     town.index++
-    town.selections.clear()
     showNightRoleMenu(town, chatId, bot, messageId)
 }
 
