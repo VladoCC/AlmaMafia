@@ -5,6 +5,7 @@ import com.github.kotlintelegrambot.entities.ChatId
 import com.github.kotlintelegrambot.entities.ParseMode
 import org.example.*
 import org.example.lua.*
+import org.example.telegram.sendMsg
 import org.example.telegram.showDayMenu
 
 data class Town(
@@ -267,10 +268,9 @@ data class Town(
         endNight()
         val chat = ChatId.fromId(chatId)
         if (fullLog.isNotBlank()) {
-            bot.sendMessage(
-                chat,
-                "Все события:\n${fullLog}",
-                parseMode = ParseMode.HTML
+            bot.sendMsg(
+                chatId,
+                "Все события:\n${fullLog}"
             )
         }
 
@@ -314,14 +314,13 @@ data class Town(
                     " / " + mapAll.getOrDefault(it, 0)
         }
         val hide = game.host?.settings?.hideRolesMode ?: false
-        bot.sendMessage(
-            chat,
+        bot.sendMsg(
+            chatId,
             "День ${towns[game.id]?.day}\n" +
                     "Вживых:\n" +
                     (if (hide) "<span class=\"tg-spoiler\">" else "") +
                     teamCounts +
-                    (if (hide) "</span>" else ""),
-            parseMode = ParseMode.HTML
+                    (if (hide) "</span>" else "")
         )
 
         if (scripts[gameId]?.containsKey(statusScriptName) == true) {

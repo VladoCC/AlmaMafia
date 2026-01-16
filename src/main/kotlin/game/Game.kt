@@ -2,7 +2,6 @@ package org.example.game
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
-import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
 import org.example.*
 import org.example.lua.BlockAction
@@ -18,18 +17,17 @@ import java.util.*
 internal fun initGame(game: Game?, path: String, chatId: Long, messageId: Long, bot: Bot) {
     if (game != null) {
         updateSetup(path, game)
-        val chat = ChatId.fromId(chatId)
         accounts.update(chatId) {
             state = AccountState.Host
         }
-        bot.sendMessage(
-            chat,
+        bot.sendMsg(
+            chatId,
             "Игра создана. Ожидайте присоединения игроков.",
-            replyMarkup = mafiaKeyboard(chatId)
+            mafiaKeyboard(chatId)
         )
         val msgId = showLobbyMenu(chatId, messageId, game, bot, true)
         accounts.update(chatId) {
-            menuMessageId = msgId
+            menuMessageId = msgId ?: -1L
         }
     } else {
         error("Не удалось создать игру. Попробуйте еще раз.")
@@ -296,16 +294,15 @@ internal fun setPlayerNum(
             Date(System.currentTimeMillis() + sendPendingAfterSec * 1000)
         )
     )
-    val res = bot.sendMessage(
-        ChatId.fromId(chatId),
+    bot.sendMsg(
+        chatId,
         Const.Message.numSaved
-    )
-    if (res.isSuccess) {
+    ).then { msgId ->
         timedMessages.save(
             TimedMessage(
                 ObjectId(),
                 chatId,
-                res.get().messageId,
+                msgId,
                 Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
             )
         )
@@ -344,7 +341,7 @@ internal fun joinGame(
     )
     val msgId = showPlayerLobbyMenu(chatId, -1L, bot, id)
     accounts.update(chatId) {
-        menuMessageId = msgId
+        menuMessageId = msgId ?: -1L
     }
 }
 
@@ -618,26 +615,17 @@ internal fun sendPlayerInfo(
                                                     roleDesc
                                                 )*/
             try {
-                val chat = ChatId.fromId(con.playerId)
                 bot.sendMessage(
-                    chat,
+                    ChatId.fromId(chatId),
                     "Ведущий начал игру",
                     replyMarkup = mafiaKeyboard(chatId)
                 )
-                val res = bot.sendMessage(
-                    chat,
-                    getRoleDesc(role),
-                    parseMode = ParseMode.HTML,
-                )
-                if (res.isSuccess) {
-                    val msgId = res.get().messageId
-                    bot.editMessageReplyMarkup(
-                        chat,
-                        msgId,
-                        replyMarkup = inlineKeyboard {
-                            button(gameInfoCommand, role.id, msgId)
-                        }
-                    )
+                bot.sendMsg(
+                    chatId,
+                    getRoleDesc(role)
+                ).inlineKeyboard { msgId ->
+                    button(gameInfoCommand, role.id, msgId)
+                }.then { msgId ->
                     messageLinks.save(MessageLink(ObjectId(), game.id, chatId, msgId))
                 }
             } catch (e: Exception) {

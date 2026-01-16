@@ -353,13 +353,19 @@ data class GameSummary(
     ) + ") - ${connections.size} игроков"
 }
 
+typealias IndexPopupId = ObjectId
+data class IndexPopup(
+    val id: IndexPopupId,
+    val chatId: Long,
+    val messageId: Long
+)
+
 typealias AdPopupId = ObjectId
 data class AdPopup(
     val id: ObjectId,
     val chatId: Long,
     val messageId: Long
 )
-
 typealias AdTargetId = ObjectId
 data class AdTarget(
     val id: AdTargetId,

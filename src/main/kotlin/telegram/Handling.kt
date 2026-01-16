@@ -2,7 +2,6 @@ package org.example.telegram
 
 import com.github.kotlintelegrambot.Bot
 import com.github.kotlintelegrambot.entities.ChatId
-import com.github.kotlintelegrambot.entities.ParseMode
 import org.bson.types.ObjectId
 import org.example.*
 import org.example.Timer
@@ -104,45 +103,22 @@ object MafiaHandler {
     private suspend fun ContainerBlock.BasicContext.lobbyCommands() {
         connections.find { playerId == chatId }.singleOrNull()?.let { con ->
             simple(leaveGameCommand, menuCommand, startCommand, leaveGameLegacyCommand) {
-                val chat = ChatId.fromId(chatId)
-                bot.deleteMessage(chat, messageId ?: -1L)
-                val res = bot.sendMessage(
-                    chat,
+                bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+                bot.sendMsg(
+                    chatId,
                     "Вы уверены, что хотите покинуть игру?"
-                )
-                if (res.isSuccess) {
-                    val msgId = res.get().messageId
-                    bot.editMessageReplyMarkup(
-                        chat,
-                        msgId,
-                        replyMarkup = inlineKeyboard {
-                            row {
-                                // todo replace -1L with messageId
-                                button(acceptLeaveCommand, -1L, msgId)
-                                button(deleteMsgCommand named "Нет", msgId)
-                            }
-                        }
-                    )
+                ).inlineKeyboard{ msgId ->
+                    row {
+                        // todo replace -1L with messageId
+                        button(acceptLeaveCommand, -1L, msgId)
+                        button(deleteMsgCommand named "Нет", msgId)
+                    }
                 }
             }
             any {
                 games.get(con.gameId)?.let { game ->
                     if (game.state == GameState.GAME) {
-                        val chat = ChatId.fromId(game.hostId)
-                        val res = bot.sendMessage(
-                            chat,
-                            "Игрок ${con.pos} - ${con.name()} пишет:\n" + query,
-                        )
-                        if (res.isSuccess) {
-                            val msgId = res.get().messageId
-                            bot.editMessageReplyMarkup(
-                                chat,
-                                msgId,
-                                replyMarkup = inlineKeyboard {
-                                    button(deleteMsgCommand, msgId)
-                                }
-                            )
-                        }
+                        sendClosable("Игрок ${con.pos} - ${con.name()} пишет:\n" + query)
                         return@any
                     } else {
                         val num: Int
@@ -168,44 +144,26 @@ object MafiaHandler {
     private suspend fun ContainerBlock.BasicContext.hostCommands(account: Account) {
         simple(rehostCommand, restartGameCommand, hostCommand, restartGameLegacyCommand) {
             bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
-            val chat = ChatId.fromId(chatId)
-            val res = bot.sendMessage(
-                chat,
+            bot.sendMsg(
+                chatId,
                 "Вы уверены, что хотите перезапустить игру?"
-            )
-            if (res.isSuccess) {
-                val msgId = res.get().messageId
-                bot.editMessageReplyMarkup(
-                    chat,
-                    msgId,
-                    replyMarkup = inlineKeyboard {
-                        row {
-                            button(acceptRehostCommand, msgId)
-                            button(deleteMsgCommand named "Нет", msgId)
-                        }
-                    }
-                )
+            ).inlineKeyboard { msgId ->
+                row {
+                    button(acceptRehostCommand, msgId)
+                    button(deleteMsgCommand named "Нет", msgId)
+                }
             }
         }
         simple(stopGameCommand, menuCommand, stopGameLegacyCommand) {
-            val chat = ChatId.fromId(chatId)
-            bot.deleteMessage(chat, messageId ?: -1L)
-            val res = bot.sendMessage(
-                chat,
+            bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+            bot.sendMsg(
+                chatId,
                 "Вы уверены, что хотите завершить игру?"
-            )
-            if (res.isSuccess) {
-                val msgId = res.get().messageId
-                bot.editMessageReplyMarkup(
-                    chat,
-                    msgId,
-                    replyMarkup = inlineKeyboard {
-                        row {
-                            button(acceptStopCommand, accounts.get(chatId)?.menuMessageId ?: -1L, msgId)
-                            button(deleteMsgCommand named "Нет", msgId)
-                        }
-                    }
-                )
+            ).inlineKeyboard{ msgId ->
+                row {
+                    button(acceptStopCommand, accounts.get(chatId)?.menuMessageId ?: -1L, msgId)
+                    button(deleteMsgCommand named "Нет", msgId)
+                }
             }
         }
         simple(startCommand) {
@@ -328,7 +286,7 @@ object MafiaHandler {
                             }
                         }
 
-                        showHostSettings(adminMenu.messageId, chatId, bot)
+                        showChosenHostSettings(bot, chatId, adminMenu.messageId, hostInfo.chatId)
                         messageId?.let { id -> bot.deleteMessage(ChatId.fromId(chatId), id) }
                         adminContexts.update(chatId) {
                             state = AdminState.NONE
@@ -380,26 +338,15 @@ object MafiaHandler {
 
     private suspend fun ContainerBlock.BasicContext.initCommands() {
         any {
-            val chat = ChatId.fromId(chatId)
             val name = query.replace("\n", " ")
-            val res = bot.sendMessage(
-                chat,
-                "Введено имя: <b>$name</b>\nВы хотите его установить?",
-                parseMode = ParseMode.HTML
-            )
-
-            if (res.isSuccess) {
-                val msgId = res.get().messageId
-                bot.editMessageReplyMarkup(
-                    chat,
-                    msgId,
-                    replyMarkup = inlineKeyboard {
-                        row {
-                            button(acceptNameCommand, name, msgId, messageId ?: -1)
-                            button(cancelName, msgId, messageId ?: -1)
-                        }
-                    }
-                )
+            bot.sendMsg(
+                chatId,
+                "Введено имя: <b>$name</b>\nВы хотите его установить?"
+            ).inlineKeyboard { msgId ->
+                row {
+                    button(acceptNameCommand, name, msgId, messageId ?: -1)
+                    button(cancelName, msgId, messageId ?: -1)
+                }
             }
         }
     }
@@ -409,23 +356,13 @@ object MafiaHandler {
             simple(adCommand) {
                 val chat = ChatId.fromId(chatId)
                 bot.deleteMessage(chat, messageId ?: -1L)
-                showAdMenu(chat, bot)
+                showAdMenu(bot, chat)
             }
             simple(adNewCommand) {
-                val chat = ChatId.fromId(chatId)
-                val res = bot.sendMessage(
-                    chat,
+                bot.sendMsg(
+                    chatId,
                     Const.Message.enterAdText
-                )
-                if (res.isSuccess) {
-                    val msgId = res.get().messageId
-                    bot.editMessageReplyMarkup(
-                        chat,
-                        msgId,
-                        replyMarkup = inlineKeyboard {
-                            button(closePopupCommand, chatId)
-                        }
-                    )
+                ).inlineKeyboard { button(closePopupCommand, chatId) }.then { msgId ->
                     adPopups.save(AdPopup(ObjectId(), chatId, msgId))
                 }
             }
@@ -433,14 +370,10 @@ object MafiaHandler {
                 if (messageId != null) {
                     bot.deleteMessage(ChatId.fromId(chatId), messageId)
                 }
-                val res = bot.sendMessage(
-                    ChatId.fromId(chatId),
+                bot.sendMsg(
+                    chatId,
                     "Меню администратора:"
-                )
-                if (res.isSuccess) {
-                    val messageId = res.get().messageId
-                    showAdmin(chatId, messageId, bot)
-                }
+                ).then { messageId -> showAdmin(bot, chatId, messageId) }
             }
             adPopups.get(chatId)?.let {
                 any {
@@ -551,24 +484,16 @@ object MafiaHandler {
                             }
                         )
                         val spacedHostName = " " + (accounts.get(chatId)?.fullName() ?: " ") + ""
-                        val chat = ChatId.fromId(con.playerId)
-                        val res = bot.sendMessage(
-                            chat,
-                            "Ведущий${spacedHostName} предлагает вам стать новым ведущим игры.\nПринять?",
-                        )
-                        if (res.isSuccess) {
-                            val msgId = res.get().messageId
+                        bot.sendMsg(
+                            chatId,
+                            "Ведущий${spacedHostName} предлагает вам стать новым ведущим игры.\nПринять?"
+                        ).inlineKeyboard { msgId ->
+                            row {
+                                button(acceptHostingCommand, game.id, chatId, msgId)
+                                button(declineHostingCommand, game.id, chatId, msgId)
+                            }
+                        }.then { msgId ->
                             rehosts.save(Rehost(ObjectId(), game.id, con.playerId, msgId))
-                            bot.editMessageReplyMarkup(
-                                chat,
-                                msgId,
-                                replyMarkup = inlineKeyboard {
-                                    row {
-                                        button(acceptHostingCommand, game.id, chatId, msgId)
-                                        button(declineHostingCommand, game.id, chatId, msgId)
-                                    }
-                                }
-                            )
                         }
                     }
 
@@ -640,8 +565,8 @@ object MafiaHandler {
                     }
                     parametrized(handCommand) {
                         if (!con.bot) {
-                            bot.sendMessage(
-                                ChatId.fromId(con.playerId),
+                            bot.sendMsg(
+                                con.playerId,
                                 "Ведущий просит вас поднять руку"
                             )
                         }
@@ -691,83 +616,78 @@ object MafiaHandler {
                 }
             }
             parametrized(advertCommand) {
-                showAdMenu(ChatId.fromId(chatId), bot)
+                showAdMenu(bot, ChatId.fromId(chatId))
             }
             parametrized(updateCheckCommand) {
                 updateCheck(str(0))
-                showAdmin(chatId, long(1), bot)
+                showAdmin(bot, chatId, long(1))
             }
             parametrized(hostRequestCommand) {
-                showHostRequests(long(0), chatId, bot)
+                showHostRequests(bot, chatId, long(0), int(1))
             }
             parametrized(hostSettingsCommand) {
-                showHostSettings(long(0), chatId, bot)
+                showHostSettings(bot, chatId, long(0), int(1))
             }
             parametrized(adminSettingsCommand) {
-                val messageId = long(0)
-                showAdminListMenu(chatId, messageId, bot)
+                showAdminListMenu(bot, chatId, long(0), int(1))
             }
             parametrized(timeLimitOnCommand) {
-                val res = bot.sendMessage(ChatId.fromId(chatId), "Введите срок действия разрешения в днях:")
-                if (res.isSuccess) {
-                    val desc = res.get().messageId
-                    createAdminContext(desc, AdminState.HOST_TIME)
+                bot.sendMsg(
+                    chatId,
+                    "Введите срок действия разрешения в днях:"
+                ).then { msgId ->
+                    createAdminContext(msgId, AdminState.HOST_TIME)
                 }
             }
             parametrized(timeLimitOffCommand) {
                 hostInfos.update(long(0)) { timeLimit = false }
-                showHostSettings(long(1), chatId, bot)
+                showChosenHostSettings(bot, chatId, long(1), long(0))
             }
             parametrized(gameLimitOnCommand) {
-                val res = bot.sendMessage(ChatId.fromId(chatId), "Введите количество разрешенных игр:")
-                if (res.isSuccess) {
-                    val desc = res.get().messageId
-                    createAdminContext(desc, AdminState.HOST_GAMES)
+                bot.sendMsg(
+                    chatId,
+                    "Введите количество разрешенных игр:"
+                ).then { msgId ->
+                    createAdminContext(msgId, AdminState.HOST_GAMES)
                 }
             }
             parametrized(gameLimitOffCommand) {
                 hostInfos.update(long(0)) { gameLimit = false }
-                showHostSettings(long(1), chatId, bot)
+                showChosenHostSettings(bot, chatId, long(1), long(0))
             }
             parametrized(shareCommand) {
                 hostInfos.get(long(0))?.let {
                     hostInfos.update(long(0)) { canShare = !it.canShare }
-                    showHostSettings(long(1), chatId, bot)
+                    showChosenHostSettings(bot, chatId, long(1), long(0))
                 }
             }
             parametrized(canReassignCommand) {
                 hostInfos.get(long(0))?.let {
                     hostInfos.update(long(0)) { canReassign = !it.canReassign }
-                    showHostSettings(long(1), chatId, bot)
+                    showChosenHostSettings(bot, chatId, long(1), long(0))
                 }
             }
             parametrized(deleteHostCommand) {
                 hostInfos.delete(long(0))
-                showHostSettings(long(1), chatId, bot)
+                showHostSettings(bot, chatId, long(1), 0)
             }
             parametrized(promoteHostCommand) {
                 accounts.get(long(0))?.let {
-                    val chat = ChatId.fromId(chatId)
-                    val res = bot.sendMessage(chat, "Вы уверены, что хотите сделать ${it.fullName()} администратором?")
-                    if (res.isSuccess) {
-                        val msgId = res.get().messageId
-                        bot.editMessageReplyMarkup(
-                            chat,
-                            msgId,
-                            replyMarkup = inlineKeyboard {
-                                row {
-                                    button(confirmPromoteCommand, long(0), long(1), msgId)
-                                    button(deleteMsgCommand named "Нет", msgId)
-                                }
-                            }
-                        )
+                    bot.sendMsg(
+                        chatId,
+                        "Вы уверены, что хотите сделать ${it.fullName()} администратором?"
+                    ).inlineKeyboard { msgId ->
+                        row {
+                            button(confirmPromoteCommand, long(0), long(1), msgId)
+                            button(deleteMsgCommand named "Нет", msgId)
+                        }
                     }
                 }
             }
             parametrized(confirmPromoteCommand) {
                 bot.deleteMessage(ChatId.fromId(chatId), long(2))
                 admins.save(UserId(ObjectId(), long(0)))
-                showHostSettings(long(1), chatId, bot)
+                showChosenHostSettings(bot, chatId, long(1), long(0))
             }
             parametrized(allowHostCommand) {
                 hostInfos.save(HostInfo(ObjectId(), long(0)))
@@ -779,55 +699,49 @@ object MafiaHandler {
                         replyMarkup = mafiaKeyboard(long(0))
                     )
                 }
-                showHostRequests(long(1), chatId, bot)
+                showHostRequests(bot, chatId, long(1))
             }
             parametrized(denyHostCommand) {
                 hostRequests.delete(long(0))
-                showHostRequests(long(1), chatId, bot)
+                showHostRequests(bot, chatId, long(1))
             }
             parametrized(removeAdminCommand) {
                 admins.delete(long(0))
-                showAdminListMenu(chatId, long(1), bot)
+                showAdminListMenu(bot, chatId, long(1), int(2))
             }
             parametrized(chooseHostAdminCommand) {
-                showChosenSettingsMenu(chatId, long(0), bot, long(1))
+                showChosenSettingsMenu(bot, chatId, long(0), long(1))
             }
             parametrized(changeHostAdminSettingCommand) {
                 hostSettings.update(long(1)) { HostOptions.valueOf(str(2)).update(this) }
-                showChosenSettingsMenu(chatId, long(0), bot, long(1))
+                showChosenSettingsMenu(bot, chatId, long(0), long(1))
+            }
+            parametrized(chooseHostSettingsCommand) {
+                showChosenHostSettings(bot, chatId, long(0), long(1))
             }
             parametrized(adminBackCommand) {
-                showAdmin(chatId, long(0), bot)
+                showAdmin(bot, chatId, long(0))
                 accounts.update(chatId) {
                     state = AccountState.Menu
                 }
                 adminContexts.delete(chatId)
             }
             parametrized(gamesSettingsCommand) {
-                showGameStatusMenu(chatId, long(0), bot)
+                showGameStatusMenu(bot, chatId, long(0), int(1))
             }
             parametrized(hostAdminSettingsCommand) {
-                showHostAdminSettingsMenu(chatId, long(0), bot)
+                showHostAdminSettingsMenu(bot, chatId, long(0), int(1))
             }
             parametrized(terminateGameCommand) {
                 games.get(id(0))?.let { game ->
-                    val chat = ChatId.fromId(chatId)
-                    val res = bot.sendMessage(
-                        chat,
-                        "Игра ${game.name()} будет завершена. Все игроки и ведущий отправлены в меню.\nВы уверены, что хотите завершить игру?",
-                    )
-                    if (res.isSuccess) {
-                        val msgId = res.get().messageId
-                        bot.editMessageReplyMarkup(
-                            chat,
-                            msgId,
-                            replyMarkup = inlineKeyboard {
-                                row {
-                                    button(confirmTerminateCommand, id(0), msgId, long(1))
-                                    button(deleteMsgCommand named "Нет", msgId)
-                                }
-                            }
-                        )
+                    bot.sendMsg(
+                        chatId,
+                        "Игра ${game.name()} будет завершена. Все игроки и ведущий отправлены в меню.\nВы уверены, что хотите завершить игру?"
+                    ).inlineKeyboard { msgId ->
+                        row {
+                            button(confirmTerminateCommand, id(0), msgId, long(1))
+                            button(deleteMsgCommand named "Нет", msgId)
+                        }
                     }
                 }
             }
@@ -862,7 +776,7 @@ object MafiaHandler {
                         target.messages.forEach {
                             bot.deleteMessage(chat, it)
                         }
-                        selectAd(target.game, target.connections, bot, ad)
+                        selectAd(bot, target.game, ad, target.connections)
                     }
                 }
             }
@@ -886,7 +800,7 @@ object MafiaHandler {
         /** with Game of this host **/
         block({ notNull { games.find { hostId == chatId }.singleOrNull() } }) { game ->
             parametrized(menuKickCommand) {
-                showKickMenu(game, long(0), bot, chatId)
+                showKickMenu(game, long(0), bot, chatId, int(1))
             }
             parametrized(changeHostCommand) {
                 games.update(game.id) {
@@ -917,23 +831,14 @@ object MafiaHandler {
                 }
             }
             parametrized(resetNumsCommand) {
-                val chat = ChatId.fromId(chatId)
-                val res = bot.sendMessage(
-                    chat,
-                    "Вы уверены, что хотите сбросить номера игроков?",
-                )
-                if (res.isSuccess) {
-                    val msgId = res.get().messageId
-                    bot.editMessageReplyMarkup(
-                        chat,
-                        msgId,
-                        replyMarkup = inlineKeyboard {
-                            row {
-                                button(confirmResetCommand, long(0), msgId)
-                                button(deleteMsgCommand named "Нет", msgId)
-                            }
-                        }
-                    )
+                bot.sendMsg(
+                    chatId,
+                    "Вы уверены, что хотите сбросить номера игроков?"
+                ).inlineKeyboard { msgId ->
+                    row {
+                        button(confirmResetCommand, long(0), msgId)
+                        button(deleteMsgCommand named "Нет", msgId)
+                    }
                 }
             }
             parametrized(confirmResetCommand) {
@@ -947,7 +852,7 @@ object MafiaHandler {
                             bot.deleteMessage(ChatId.fromId(acc.chatId), acc.menuMessageId)
                             val msgId = showPlayerLobbyMenu(acc.chatId, -1L, bot, con.id)
                             accounts.update(con.playerId) {
-                                menuMessageId = msgId
+                                menuMessageId = msgId ?: -1L
                             }
                         }
                     }
@@ -995,7 +900,7 @@ object MafiaHandler {
 
                 val notPositive = cons.filter { it.pos < 1 }
                 if (notPositive.isNotEmpty()) {
-                    sendClosable("Невозможно начать игру:\n" + notPositive.joinToString("\n") { "Номер игрока ${it.name()} должен быть позитвным, обнаружен номер ${it.pos}" })
+                    sendClosable("Невозможно начать игру:\n" + notPositive.joinToString("\n") { "Номер игрока ${it.name()} должен быть позитивным, обнаружен номер ${it.pos}" })
                     return@parametrized
                 }
 
@@ -1176,7 +1081,7 @@ object MafiaHandler {
             }
 
             parametrized(swapPairsCommand) {
-                val res = bot.editMessageReplyMarkup(
+                bot.editMessageReplyMarkup(
                     ChatId.fromId(chatId),
                     long(0),
                     replyMarkup = inlineKeyboard {
@@ -1331,15 +1236,19 @@ object MafiaHandler {
             }
             parametrized(timerCommand) {
                 if (timers.get(chatId) == null) {
-                    val res = bot.sendMessage(
-                        ChatId.fromId(chatId),
+                    bot.sendMsg(
+                        chatId,
                         "Таймер:"
-                    )
-                    if (res.isSuccess) {
-                        val messageId = res.get().messageId
-                        val timer = Timer(ObjectId(), chatId, game.id, messageId, System.currentTimeMillis(), 0L)
+                    ).then { msgId ->
                         timers.save(
-                            timer
+                            Timer(
+                                ObjectId(),
+                                chatId,
+                                game.id,
+                                msgId,
+                                System.currentTimeMillis(),
+                                0L
+                            )
                         )
                     }
                 }
@@ -1796,8 +1705,8 @@ object MafiaHandler {
                                 game.host?.let { prevHost ->
                                     con.player?.let { newHost ->
                                         bot.deleteMessage(ChatId.fromId(prevHost.chatId), prevHost.menuMessageId)
-                                        bot.sendMessage(
-                                            ChatId.fromId(prevHost.chatId),
+                                        bot.sendMsg(
+                                            prevHost.chatId,
                                             "Игрок ${newHost.fullName()} стал новым ведущим этой игры"
                                         )
                                         accounts.update(prevHost.chatId) {
@@ -1818,7 +1727,7 @@ object MafiaHandler {
                                         }
                                         rehosts.delete(game.id)
                                         bot.sendMessage(
-                                            chat,
+                                            ChatId.fromId(newHost.chatId),
                                             "Вы стали новым ведущим игры",
                                             replyMarkup = mafiaKeyboard(chatId)
                                         )
@@ -1839,20 +1748,11 @@ object MafiaHandler {
                             if (rehost.hostId == chatId) {
                                 game.host?.let { prevHost ->
                                     con.player?.let { newHost ->
-                                        val chat = ChatId.fromId(prevHost.chatId)
-                                        val res = bot.sendMessage(
-                                            chat,
+                                        bot.sendMsg(
+                                            chatId,
                                             "Игрок ${newHost.fullName()} отказался вести игру"
-                                        )
-                                        if (res.isSuccess) {
-                                            val msgId = res.get().messageId
-                                            bot.editMessageReplyMarkup(
-                                                chat,
-                                                msgId,
-                                                replyMarkup = inlineKeyboard {
-                                                    button(deleteMsgCommand, msgId)
-                                                }
-                                            )
+                                        ).inlineKeyboard { msgId ->
+                                            button(deleteMsgCommand, msgId)
                                         }
                                     }
                                     bot.deleteMessage(ChatId.fromId(con.playerId), long(2))
@@ -1873,14 +1773,13 @@ object MafiaHandler {
                         val chat = ChatId.fromId(chatId)
                         if (checks.get(CheckOption.ONE_MSG_PLAYER_INFO)) {
                             bot.editMessageText(
-                                chat,
+                                ChatId.fromId(chatId),
                                 long(1),
                                 text = desc,
                                 replyMarkup = inlineKeyboard {
                                     button(revealRoleCommand, id(0), long(1))
                                     button(aliveInfoCommand, id(0), long(1))
-                                },
-                                parseMode = ParseMode.HTML
+                                }
                             )
                             messageLinks.updateMany({
                                 messageId == long(1)
@@ -1890,20 +1789,13 @@ object MafiaHandler {
                                 type = LinkType.INFO
                             }
                         } else {
-                            val res = bot.sendMessage(
-                                chat,
-                                desc,
-                                parseMode = ParseMode.HTML
-                            )
-                            if (res.isSuccess && checks.get(CheckOption.GAME_MESSAGES)) {
-                                messageLinks.save(
-                                    MessageLink(
-                                        ObjectId(),
-                                        game.id,
-                                        con.playerId,
-                                        res.get().messageId
-                                    )
-                                )
+                            bot.sendMsg(
+                                chatId,
+                                desc
+                            ).then { msgId ->
+                                if (checks.get(CheckOption.GAME_MESSAGES)) {
+                                    messageLinks.save(MessageLink(ObjectId(), game.id, con.playerId, msgId))
+                                }
                             }
                         }
                     }
@@ -1912,44 +1804,43 @@ object MafiaHandler {
                     if (game.state == GameState.GAME || game.state == GameState.REVEAL) {
                         try {
                             roles.get(id(0))?.let { role ->
-                                val chat = ChatId.fromId(con.playerId)
+                                val chat = con.playerId
                                 val desc = getRoleDesc(role)
                                 if (checks.get(CheckOption.ONE_MSG_PLAYER_INFO)) {
                                     bot.editMessageText(
-                                        chat,
+                                        ChatId.fromId(chat),
                                         long(1),
                                         text = desc,
                                         replyMarkup = inlineKeyboard {
                                             button(gameInfoCommand, role.id, long(1))
                                             button(aliveInfoCommand, role.id, long(1))
-                                        },
-                                        parseMode = ParseMode.HTML
+                                        }
                                     )
                                     messageLinks.updateMany({
                                         messageId == long(1)
-                                                && chatId == con.playerId
+                                                && chat == con.playerId
                                                 && gameId == game.id
                                     }) {
                                         type = LinkType.ROLE
                                     }
                                 } else {
-                                    val res = bot.sendMessage(
-                                        chat,
-                                        desc,
-                                        parseMode = ParseMode.HTML
-                                    )
-                                    if (res.isSuccess && checks.get(CheckOption.GAME_MESSAGES)) {
-                                        messageLinks.save(
-                                            MessageLink(
-                                                ObjectId(),
-                                                game.id,
-                                                con.playerId,
-                                                res.get().messageId
-                                            )
-                                        )
-                                    }
+                                   bot.sendMsg(
+                                       chat,
+                                       desc
+                                   ).then { msgId ->
+                                       if (checks.get(CheckOption.GAME_MESSAGES)) {
+                                           messageLinks.save(
+                                               MessageLink(
+                                                   ObjectId(),
+                                                   game.id,
+                                                   con.playerId,
+                                                   msgId
+                                               )
+                                           )
+                                       }
+                                   }
                                     bot.editMessageReplyMarkup(
-                                        chat,
+                                        ChatId.fromId(chat),
                                         long(1),
                                         replyMarkup = inlineKeyboard {
                                             button(gameInfoCommand, role.id, long(1))
@@ -2168,7 +2059,7 @@ private fun showReassignMenu(
     roleOptions: List<Role>, bot: Bot, chatId: Long, messageId: Long,
     connectionId: ConnectionId, menuCommand: Command
 ) {
-    val res = bot.editMessageReplyMarkup(
+    bot.editMessageReplyMarkup(
         ChatId.fromId(chatId),
         messageId,
         replyMarkup = inlineKeyboard {
