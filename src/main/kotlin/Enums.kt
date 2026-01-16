@@ -25,9 +25,11 @@ enum class CheckOption(val key: String, val display: String) {
     GAME_MESSAGES("game_messages", "Удалять игровые сообщения"),
     KEEP_DETAILS("keep_details", "Оставаться в меню деталей после нажатия кнопки"),
     CHECK_ROLE("check_role", "Проверять роль ночью"),
-    ONE_MSG_PLAYER_INFO("one_msg_player_info", "Роль и инфо об игре в одном сообщении")
+    ONE_MSG_PLAYER_INFO("one_msg_player_info", "Роль и инфо об игре в одном сообщении"),
+    SHOW_TOWN("show_town", "Ведущий может показать список ролей игроку")
 }
 
+// Uses camel case to shorten names in telegram payloads
 enum class HostOptions(val shortName: String, val fullName: String, val current: HostSettings.() -> Boolean, val update: HostSettings.() -> Unit) {
     Fall(
         "0️⃣ Режим фоллов",
@@ -83,21 +85,42 @@ enum class HostOptions(val shortName: String, val fullName: String, val current:
         {
             hideRolesMode = !hideRolesMode
         }
+    ),
+    AutoNight(
+        "🤖 Автоночь",
+        "Проведение ночи без ведущего",
+        { autoNight?.enabled == true },
+        {
+            if (autoNight == null) {
+                autoNight = HostSettings.AutoNightSettings()
+            }
+            autoNight?.enabled = !autoNight!!.enabled
+        }
     )
 }
 
+// Uses camel case because of legacy data storage
 enum class AccountState {
     Init, Menu, Host, Lobby, Presets, Admin
 }
 
 enum class GameState {
-    Connect, Roles, Preview, Game, Dummy, Rename, Num, Type, Reveal, ChangeHost
+    CONNECT, ROLES, PREVIEW, GAME, DUMMY, RENAME, NUM, TYPE, REVEAL, REHOST
 }
 
 enum class AdminState {
     NONE, HOST_TIME, HOST_GAMES
 }
 
-enum class LinkType {
-    NONE, ROLE, INFO, ALIVE
+enum class LinkType(val desc: String, val showInMenu: (connection: Connection) -> Boolean = { true }) {
+    NONE("`", { false }),
+    ROLE("👀 Показать роль"),
+    INFO("ℹ️ Информация об игре"),
+    ALIVE("👥 Живые игроки", { checks.get(CheckOption.ONE_MSG_PLAYER_INFO) }),
+    REVEAL("Меню города ▶️", { checks.get(CheckOption.SHOW_TOWN) && it.share != null })
+}
+
+
+enum class AutoNightInputType {
+    SINGLE, TEAM
 }

@@ -39,6 +39,10 @@ class LuaInterface(val actors: List<Int>, val selection: List<Person>, val town:
     fun GET_ACTORS() = actors.map { town.playerMap[it] }
     fun TWO(ret1: Return, ret2: Return) = Return(ret1.actions + ret2.actions)
     fun THREE(ret1: Return, ret2: Return, ret3: Return) = TWO(TWO(ret1, ret2), ret3)
+
+    fun PLAY() = PlayState
+    fun WON(team: String) = WonState(team)
+    fun TIE(vararg teams: String) = TieState(teams.toList())
 }
 
 data class Return(val actions: List<Action>) {

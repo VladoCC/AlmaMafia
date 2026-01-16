@@ -12,7 +12,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.bson.types.ObjectId
 import org.example.game.*
-import org.example.game.desc
 import org.example.game.stopGame
 import org.example.lua.*
 import org.example.telegram.*
@@ -46,11 +45,13 @@ const val timerMaxTimeMin = 5L
 const val timerInactiveTimeMin = 2L
 const val roleNameLen = 32
 const val roleDescLen = 280
-const val defaultPageSize: Int = 10
+const val defaultPageSize: Int = 1//0
+const val statusScriptName = "[status]"
+val deleteForceLeadConfirmAfter: Duration = Duration.ofSeconds(10)
 val numbers = arrayOf("0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣")
 val notKnowingTeams = arrayOf("none", "city")
 val dateFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
-val inGameStates = setOf(GameState.Type, GameState.Reveal, GameState.Game)
+val inGameStates = setOf(GameState.TYPE, GameState.REVEAL, GameState.GAME)
 
 val resetAccount: Account.() -> Unit = {
     state = AccountState.Menu
@@ -92,10 +93,10 @@ fun main() {
                 try {
                     val now = Date()
                     val filter: TimedMessage.() -> Boolean = { date.before(now) }
-                    bombs.find(filter).forEach {
+                    timedMessages.find(filter).forEach {
                         bot.deleteMessage(ChatId.fromId(it.chatId), it.messageId)
                     }
-                    bombs.deleteMany(filter)
+                    timedMessages.deleteMany(filter)
                 } catch (e: Exception) {
                     log.error("Unable to process bomb messages", e)
                 }
@@ -129,9 +130,9 @@ fun main() {
                     set.forEach {
                         accounts.get(it.host)?.let {
                             games.find { hostId == it.chatId }.singleOrNull()?.let { game ->
-                                if (game.state == GameState.Connect) {
+                                if (game.state == GameState.CONNECT) {
                                     showLobbyMenu(it.chatId, it.menuMessageId, game, bot)
-                                } else if (game.state == GameState.Reveal) {
+                                } else if (game.state == GameState.REVEAL) {
                                     showRevealMenu(game, bot, it.chatId, it.menuMessageId)
                                 }
                             }
@@ -212,6 +213,39 @@ fun main() {
                 delay(60000)
             }
         }
+
+        launch {
+            while (true) {
+                try {
+                    val set = mutableSetOf<NightMessageUpdate>()
+                    nightMessageUpdates.find().forEach { set.add(it) }
+                    if (set.isNotEmpty()) {
+                        nightMessageUpdates.deleteMany { this in set }
+                        set.forEach { update ->
+                            update.action?.let { action ->
+                                action.actors.forEach { actor ->
+                                    actor.connection?.nightPlayerMessage?.let { msg ->
+                                        towns[action.gameId]?.let { town ->
+                                            showAutoNightPlayerMenu(
+                                                town.night[action.wakeId],
+                                                town,
+                                                actor,
+                                                msg.chatId,
+                                                msg.messageId,
+                                                bot
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    log.error("Unable to process auto-night updates", e)
+                }
+                delay(5000)
+            }
+        }
     }
 }
 
@@ -259,7 +293,7 @@ fun selectAd(bot: Bot, game: Game, ad: Message, connections: List<Connection>) {
             chatId,
             ad.text
         ).then { msgId ->
-            bombs.save(
+            timedMessages.save(
                 TimedMessage(
                     ObjectId(),
                     chatId,
@@ -281,13 +315,13 @@ internal fun updateSettingsView(
     messageId: Long,
     gameMessageId: Long,
     game: Game,
-    town: Town,
+    town: Town?,
     bot: Bot,
     update: HostSettings.() -> Unit
 ) {
     hostSettings.update(hostId, update)
     hostSettings.get(hostId)?.let { settings ->
-        if (gameMessageId != -1L) {
+        if (gameMessageId != -1L && town != null) {
             showDayMenu(town, hostId, gameMessageId, bot, game)
         }
         showSettingsMenu(settings, hostId, messageId, gameMessageId, bot)
@@ -303,10 +337,12 @@ fun showPlayerDayDesc(town: Town, playerPos: Int, messageId: Long, chatId: Long,
             messageId,
             replyMarkup = inlineKeyboard {
                 button(blankCommand named "Детали")
-                button(dayDetailsCommand named desc(
-                    player,
-                    hideRolesMode = getHideRolesMode(games.get(town.gameId))
-                ), playerPos, messageId)
+                button(
+                    dayDetailsCommand named desc(
+                        player,
+                        noRoles = getHideRolesMode(games.get(town.gameId))
+                    ), playerPos, messageId
+                )
                 row {
                     playerDayDesc(player, messageId, fallMode)
                 }
@@ -523,43 +559,55 @@ fun updateSetup(
         }
         types.deleteMany { gameId == game.id }
         data.type.forEach {
-            types.save(Type(ObjectId(), game.id, it.name, it.choice))
+            types.save(
+                Type(
+                    ObjectId(),
+                    game.id,
+                    it.name,
+                    it.choice,
+                    it.displayName
+                )
+            )
         }
         orders.deleteMany { gameId == game.id }
         data.order.forEachIndexed { index, s ->
             orders.save(TypeOrder(ObjectId(), game.id, s, index))
+        }
+        data.teamDisplayNames.forEach {
+            teamNames.save(TeamName(ObjectId(), game.id, it.key, it.value))
         }
     } catch (e: Exception) {
         log.error("Unable to update setups for game: $game, path: $path", e)
     }
 }
 
-fun shortLog(town: Town): String {
+fun shortLog(town: Town, hideRoles: Boolean = false): String {
     return if (town.actions.isNotEmpty()) {
         val set = mutableSetOf<Pair<KClass<out Event>, Int>>()
         val text =
-            town.actions.asSequence().filter { it.skippedBy == null }.map { it.events() }.flatten().sortedBy { it.pos }.map {
-                val pair = it::class to it.pos
-                if (pair !in set) {
-                    set.add(pair)
-                    "${it.symbol()} Игрок ${desc(town.playerMap[it.pos], " - ", false)} ${it.desc()}"
-                } else {
-                    null
-                }
-            }.filterNotNull().joinToString("\n")
+            town.actions.asSequence().filter { it.skippedBy == null }.map { it.events() }.flatten().sortedBy { it.pos }
+                .map {
+                    val pair = it::class to it.pos
+                    if (pair !in set) {
+                        set.add(pair)
+                        "${it.symbol()} Игрок ${desc(town.playerMap[it.pos], " - ", false, hideRoles)} ${it.desc()}"
+                    } else {
+                        null
+                    }
+                }.filterNotNull().joinToString("\n")
         text
     } else {
         ""
     }
 }
 
-fun fullLog(town: Town): String {
+fun fullLog(town: Town, hideRoles: Boolean): String {
     return if (town.actions.isNotEmpty()) {
         val text = town.actions.filter {
             (it.skippedBy == null || !it.skippedBy!!.master)
                     && it.dependencies.all {
-                        it.skippedBy == null || !it.skippedBy!!.master
-                    }
+                it.skippedBy == null || !it.skippedBy!!.master
+            }
         }.mapIndexed { i, it ->
             val action = it.desc()
 
@@ -594,11 +642,11 @@ fun fullLog(town: Town): String {
                     "Кто: $who\n" +
                     "Действие: $action\n" +
                     "Цель: $target\n" +
-                    (if (it is InfoAction) "Результат: ${it.text}" else "") +
-                    (if (dep != null) "Реакция на: $dep" else "") +
-                    (if (skipper != null) "Отменено ролью: $skipper" else "")
+                    (if (it is InfoAction) "Результат: ${it.text}\n" else "") +
+                    (if (dep != null) "Реакция на: $dep\n" else "") +
+                    (if (skipper != null) "Отменено ролью: $skipper\n" else "")
         }.joinToString("\n\n")
-        text
+        if (hideRoles) "<span class=\"tg-spoiler\">$text</span>" else text
     } else {
         ""
     }
@@ -650,52 +698,53 @@ fun showRoles(
     game: Game
 ) {
     val players = connections.find { gameId == game.id }
-    val pairs = pairings.find { gameId == game.id }
+    pairings.find { gameId == game.id }
     val gameSetups = setups.find { gameId == game.id }
+    val keyboard = inlineKeyboard {
+        gameSetups.sortedBy { it.index }.chunked(2).forEach {
+            val left = it[0]
+            val right = if (it.size > 1) it[1] else null
+            row {
+                button(roleCommand named left.role!!.displayName, left.roleId, messageId)
+                if (right != null) {
+                    button(roleCommand named right.role!!.displayName, right.roleId, messageId)
+                } else {
+                    button(blankCommand)
+                }
+            }
+            row {
+                button(decrCommand, left.id, messageId)
+                button(blankCommand named left.count.toString())
+                button(incrCommand, left.id, messageId)
+                if (right != null) {
+                    button(decrCommand, right.id, messageId)
+                    button(blankCommand named right.count.toString())
+                    button(incrCommand, right.id, messageId)
+                } else {
+                    button(blankCommand)
+                    button(blankCommand)
+                    button(blankCommand)
+                }
+            }
+        }
+        row {
+            button(command("Игроков: ${players.size}", "default"))
+        }
+        row {
+            button(blankCommand named "♦️️: ${gameSetups.filter { it.role?.defaultTeam == "city" }.sumOf { it.count }}")
+            button(blankCommand named "Выбрано: ${gameSetups.sumOf { it.count }}")
+            button(blankCommand named "♣️: ${gameSetups.filter { it.role?.defaultTeam != "city" }.sumOf { it.count }}")
+        }
+        button(resetRolesCommand, game.id, messageId)
+        row {
+            button(menuLobbyCommand, messageId)
+            button(previewCommand, game.id, messageId)
+        }
+    }
     bot.editMessageReplyMarkup(
         ChatId.fromId(chatId),
         messageId,
-        replyMarkup = inlineKeyboard {
-            gameSetups.sortedBy { it.index }.chunked(2).forEach {
-                val left = it[0]
-                val right = if (it.size > 1) it[1] else null
-                row {
-                    button(roleCommand named left.role!!.displayName, left.roleId, messageId)
-                    if (right != null) {
-                        button(roleCommand named right.role!!.displayName, right.roleId, messageId)
-                    } else {
-                        button(blankCommand)
-                    }
-                }
-                row {
-                    button(decrCommand, left.id, messageId)
-                    button(blankCommand named left.count.toString())
-                    button(incrCommand, left.id, messageId)
-                    if (right != null) {
-                        button(decrCommand, right.id, messageId)
-                        button(blankCommand named right.count.toString())
-                        button(incrCommand, right.id, messageId)
-                    } else {
-                        button(blankCommand)
-                        button(blankCommand)
-                        button(blankCommand)
-                    }
-                }
-            }
-            row {
-                button(command("Игроков: ${players.size}", "default"))
-            }
-            row {
-                button(blankCommand named "♦️️: ${gameSetups.filter { it.role?.defaultTeam == "city" }.sumOf { it.count }}")
-                button(blankCommand named "Выбрано: ${gameSetups.sumOf { it.count }}")
-                button(blankCommand named "♣️: ${gameSetups.filter { it.role?.defaultTeam != "city" }.sumOf { it.count }}")
-            }
-            button(resetRolesCommand, game.id, messageId)
-            row {
-                button(menuLobbyCommand, messageId)
-                button(previewCommand, game.id, messageId)
-            }
-        }
+        replyMarkup = keyboard
     )
 }
 
@@ -707,53 +756,54 @@ fun showPreview(
 ) {
     val players = connections.find { gameId == game.id }
     val pairs = pairings.find { gameId == game.id }.associateBy { it.connectionId }
+    val keyboard = inlineKeyboard {
+        val hideRolesMode = getHideRolesMode(game)
+        players.sortedBy { it.pos }.forEach {
+            val pair = pairs[it.id]
+            row {
+                button(
+                    if (it.pos == Int.MAX_VALUE) positionCommand
+                    else (positionCommand named it.pos.toString()),
+                    it.id,
+                    0,
+                    messageId
+                )
+                button(detailsCommand named it.name(), it.id, messageId)
+                val roleName = pair?.roleId?.let { id ->
+                    if (hideRolesMode) {
+                        "👌 Роль выдана"
+                    } else {
+                        roles.get(id)?.displayName
+                    }
+                } ?: "❗ Роль не выдана"
+                if (game.host?.hostInfo?.canReassign == true) {
+                    button(reassignRoleCommand named roleName, messageId, it.id)
+                } else {
+                    button(blankCommand named roleName)
+                }
+            }
+        }
+        row {
+            button(command("Игроков: ${players.size}", "default"))
+        }
+        row {
+            button(blankCommand named "Распределено ролей: ${pairs.size}")
+        }
+        button(
+            toggleHideRolesModePreviewCommand named
+                    if (hideRolesMode) "👓 Показывать роли" else "🕶️ Скрывать роли",
+            messageId
+        )
+        button(previewCommand named "🔄 Перераздать", chatId, messageId)
+        row {
+            button(menuRolesCommand named "◀️ Меню ролей", messageId)
+            button(gameCommand, game.id, messageId)
+        }
+    }
     bot.editMessageReplyMarkup(
         ChatId.fromId(chatId),
         messageId,
-        replyMarkup = inlineKeyboard {
-            val hideRolesMode = getHideRolesMode(game)
-            players.sortedBy { it.pos }.forEach {
-                val pair = pairs[it.id]
-                row {
-                    button(
-                        if (it.pos == Int.MAX_VALUE) positionCommand
-                        else (positionCommand named it.pos.toString()),
-                        it.id,
-                        0,
-                        messageId
-                    )
-                    button(detailsCommand named it.name(), it.id, messageId)
-                    val roleName = pair?.roleId?.let { id ->
-                        if (hideRolesMode) {
-                            "👌 Роль выдана"
-                        } else {
-                            roles.get(id)?.displayName
-                        }
-                    } ?: "❗ Роль не выдана"
-                    if (game.host?.hostInfo?.canReassign == true) {
-                        button(reassignRoleCommand named roleName, messageId, it.id)
-                    } else {
-                        button(blankCommand named roleName)
-                    }
-                }
-            }
-            row {
-                button(command("Игроков: ${players.size}", "default"))
-            }
-            row {
-                button(blankCommand named "Распределено ролей: ${pairs.size}")
-            }
-            button(
-                toggleHideRolesModePreviewCommand named
-                        if (hideRolesMode) "👓 Показывать роли" else "🕶️ Скрывать роли",
-                messageId
-            )
-            button(previewCommand named "🔄 Перераздать", chatId, messageId)
-            row {
-                button(menuRolesCommand named "◀️ Меню ролей", messageId)
-                button(gameCommand, game.id, messageId)
-            }
-        }
+        replyMarkup = keyboard
     )
 }
 
@@ -770,7 +820,11 @@ fun menuButtons(
         games.find { actual }.forEach {
             accounts.get(it.hostId)?.let { host ->
                 row {
-                    button(joinCommand named (if (it.state in inGameStates) "🎮" else "👥") + host.fullName(), it.id, messageId)
+                    button(
+                        joinCommand named (if (it.state in inGameStates) "🎮" else "👥") + host.fullName(),
+                        it.id,
+                        messageId
+                    )
                 }
             }
         }

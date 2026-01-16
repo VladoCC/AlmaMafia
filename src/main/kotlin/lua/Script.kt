@@ -30,12 +30,12 @@ class Script(name: String, scriptDir: Path) {
 
     private val log = logger<Script>()
 
-    fun action(players: List<Person?>, util: LuaInterface, func: (Return) -> Unit) {
-        callForReturn("action", CoerceJavaToLua.coerce(players.toTypedArray()), util)?.let(func)
+    fun <R> action(players: List<Person?>, util: LuaInterface, func: (Return) -> R): R? {
+        return callForReturn("action", CoerceJavaToLua.coerce(players.toTypedArray()), util)?.let(func)
     }
 
-    fun passive(action: Action, util: LuaInterface, func: (Return) -> Unit) {
-        callForReturn("passive", CoerceJavaToLua.coerce(action), util)?.let(func)
+    fun <R> passive(action: Action, util: LuaInterface, func: (Return) -> R): R? {
+        return callForReturn("passive", CoerceJavaToLua.coerce(action), util)?.let(func)
     }
 
     fun type(players: List<Person>): String {
@@ -44,6 +44,14 @@ class Script(name: String, scriptDir: Path) {
 
     fun team(players: List<Person>): String {
         return call("team", CoerceJavaToLua.coerce(players.toTypedArray())).toString()
+    }
+
+    fun status(players: List<Person>, util: LuaInterface): GameState? {
+        return callForState(
+            "status",
+            CoerceJavaToLua.coerce(players.toTypedArray()),
+            util
+        )
     }
 
     private fun callForReturn(func: String, arg: LuaValue, util: LuaInterface): Return? {
@@ -58,9 +66,19 @@ class Script(name: String, scriptDir: Path) {
         return result
     }
 
-    private fun call(func: String, arg: LuaValue, util: LuaInterface? = null): LuaValue? {
-        if (lua == null) return null
+    private fun callForState(func: String, arg: LuaValue, util: LuaInterface): GameState? {
+        val result = CoerceLuaToJava.coerce(
+            call(func, arg, util),
+            GameState::class.java
+        )
+        if (result !is GameState) {
+            log.error("Unexpected result type for lua call: ${result::class.qualifiedName}")
+            return null
+        }
+        return result
+    }
 
+    private fun call(func: String, arg: LuaValue, util: LuaInterface? = null): LuaValue? {
         if (util != null) {
             lua.set("UTIL", CoerceJavaToLua.coerce(util))
         }

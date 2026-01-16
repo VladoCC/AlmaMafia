@@ -27,17 +27,6 @@ object MafiaHandler {
 
         adminCommands()
 
-        simple(editSettingsCommand) {
-            bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
-            hostSettings.get(chatId)?.let {
-                showSettingsMenu(it, chatId, -1L, -1L, bot)
-            }
-        }
-
-        indexPopups.get(account!!.chatId)?.let {
-
-        }
-
         when (account!!.state) {
             AccountState.Init -> {
                 initCommands()
@@ -107,7 +96,7 @@ object MafiaHandler {
             }
         }
         adminQueries()
-        hostQueries(towns)
+        hostQueries()
         playerQueries()
     }
 
@@ -128,7 +117,7 @@ object MafiaHandler {
             }
             any {
                 games.get(con.gameId)?.let { game ->
-                    if (game.state == GameState.Game) {
+                    if (game.state == GameState.GAME) {
                         sendClosable("Игрок ${con.pos} - ${con.name()} пишет:\n" + query)
                         return@any
                     } else {
@@ -136,7 +125,7 @@ object MafiaHandler {
 
                         try {
                             num = query.toInt()
-                        } catch (e: NumberFormatException) {
+                        } catch (_: NumberFormatException) {
                             bot.error(chatId)
                             return@any
                         }
@@ -182,7 +171,7 @@ object MafiaHandler {
         }
         any {
             games.find { hostId == chatId }.singleOrNull()?.let { game ->
-                if (game.state == GameState.Dummy) {
+                if (game.state == GameState.DUMMY) {
                     connections.save(
                         Connection(
                             ObjectId(),
@@ -195,12 +184,12 @@ object MafiaHandler {
                     )
                     games.updateMany(
                         { hostId == chatId },
-                        { state = GameState.Connect }
+                        { state = GameState.CONNECT }
                     )
                     showLobbyMenu(chatId, account.menuMessageId, game, bot)
                     bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
                     return@any
-                } else if (game.state == GameState.Rename && account.connectionId != null) {
+                } else if (game.state == GameState.RENAME && account.connectionId != null) {
                     connections.get(account.connectionId!!)?.let { con ->
                         if (con.gameId == game.id) {
                             val newName = query
@@ -208,7 +197,7 @@ object MafiaHandler {
                                 name = newName
                             }
                             games.update(game.id) {
-                                state = GameState.Connect
+                                state = GameState.CONNECT
                             }
                             bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
                             /*bot.sendMessage(
@@ -220,16 +209,51 @@ object MafiaHandler {
                         }
                         return@any
                     }
-                } else if (game.state == GameState.Num) {
+                } else if (game.state == GameState.NUM) {
                     val num = try {
                         query.toInt()
-                    } catch (e: NumberFormatException) {
+                    } catch (_: NumberFormatException) {
                         bot.error(chatId)
                         return@any
                     }
                     bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
                     if (num > 0) {
                         hostSetPlayerNum(game, account.connectionId, num, account.menuMessageId, chatId, bot)
+                    }
+                } else if (autoNightInputs.get(chatId) != null) {
+                    val input = autoNightInputs.get(chatId)!!
+                    hostSettings.get(chatId)?.let { settings ->
+                        val num = try {
+                            query.toInt()
+                        } catch (_: NumberFormatException) {
+                            bot.error(chatId)
+                            return@any
+                        }
+                        if (num <= 0) {
+                            bot.error(chatId, "Число должно быть положительным")
+                            return@any
+                        }
+                        when (input.type) {
+                            AutoNightInputType.SINGLE -> {
+                                settings.autoNight?.actionSingleLimitSec = num
+                            }
+
+                            AutoNightInputType.TEAM -> {
+                                settings.autoNight?.actionTeamLimitSec = num
+                            }
+                        }
+                        hostSettings.update(settings.hostId) {
+                            autoNight = settings.autoNight
+                        }
+                        bot.deleteMessage(ChatId.fromId(chatId), messageId ?: -1L)
+                        showSettingsMenu(
+                            settings,
+                            chatId,
+                            input.settingsMessageId,
+                            input.gameMessageId,
+                            bot
+                        )
+                        return@any
                     }
                 }
             }
@@ -244,14 +268,13 @@ object MafiaHandler {
                 val num: Int
                 try {
                     num = query.toInt()
-                } catch (e: NumberFormatException) {
+                } catch (_: NumberFormatException) {
                     bot.error(chatId, "Не удалось распознать число")
                     return@any
                 }
 
                 if (num > 0) {
-                    val editFilter: HostInfo.() -> Boolean = { this.chatId == adminMenu.editId }
-                    val hostInfo = hostInfos.find(editFilter).singleOrNull()
+                    val hostInfo = hostInfos.find { chatId == adminMenu.editId }.singleOrNull()
                     if (hostInfo != null) {
                         hostInfos.update(hostInfo.chatId) {
                             if (adminMenu.state == AdminState.HOST_TIME) {
@@ -450,7 +473,7 @@ object MafiaHandler {
                 block(game.hostId == chatId) {
                     parametrized(newHostCommand) {
                         games.update(game.id) {
-                            state = GameState.ChangeHost
+                            state = GameState.REHOST
                         }
                         bot.editMessageReplyMarkup(
                             ChatId.fromId(chatId),
@@ -500,11 +523,11 @@ object MafiaHandler {
                         )
                     }
                     parametrized(renameCommand) {
-                        if (game.state != GameState.Connect) {
+                        if (game.state != GameState.CONNECT) {
                             return@parametrized
                         }
                         games.update(game.id) {
-                            state = GameState.Rename
+                            state = GameState.RENAME
                         }
                         accounts.update(chatId) {
                             connectionId = con.id
@@ -524,7 +547,7 @@ object MafiaHandler {
                             connectionId = con.id
                         }
                         games.update(game.id) {
-                            state = GameState.Num
+                            state = GameState.NUM
                         }
                         bot.editMessageReplyMarkup(
                             ChatId.fromId(chatId),
@@ -769,7 +792,7 @@ object MafiaHandler {
         }
     }
 
-    private suspend fun ContainerBlock.ParametrizedContext.hostQueries(towns: MutableMap<GameId, Town>) {
+    private suspend fun ContainerBlock.ParametrizedContext.hostQueries() {
         parametrized(acceptStopCommand) {
             stopGames(games.find { hostId == chatId }, chatId, bot, long(0), long(1))
         }
@@ -781,7 +804,7 @@ object MafiaHandler {
             }
             parametrized(changeHostCommand) {
                 games.update(game.id) {
-                    state = GameState.ChangeHost
+                    state = GameState.REHOST
                 }
                 fun name(connection: Connection) =
                     (if (connection.pos > 0 && connection.pos != Int.MAX_VALUE) connection.pos.toString() + ". " else "") + connection.name()
@@ -801,7 +824,7 @@ object MafiaHandler {
                 rehosts.get(game.id)?.let {
                     bot.deleteMessage(ChatId.fromId(it.hostId), it.messageId)
                     games.update(game.id) {
-                        state = GameState.Connect
+                        state = GameState.CONNECT
                     }
                     rehosts.delete(it.gameId)
                     showLobbyMenu(chatId, game.host?.menuMessageId ?: -1L, game, bot)
@@ -827,11 +850,9 @@ object MafiaHandler {
                     if (!con.bot) {
                         accounts.get(con.playerId)?.let { acc ->
                             bot.deleteMessage(ChatId.fromId(acc.chatId), acc.menuMessageId)
-                            val msgId = showPlayerMenu(acc.chatId, -1L, bot, con.id)
-                            msgId?.let {
-                                accounts.update(con.playerId) {
-                                    menuMessageId = msgId
-                                }
+                            val msgId = showPlayerLobbyMenu(acc.chatId, -1L, bot, con.id)
+                            accounts.update(con.playerId) {
+                                menuMessageId = msgId ?: -1L
                             }
                         }
                     }
@@ -842,7 +863,7 @@ object MafiaHandler {
             }
             parametrized(hostBackCommand, menuLobbyCommand) {
                 games.update(game.id) {
-                    state = GameState.Connect
+                    state = GameState.CONNECT
                 }
                 showLobbyMenu(chatId, long(0), game, bot)
             }
@@ -852,7 +873,7 @@ object MafiaHandler {
             }
             parametrized(menuRolesCommand) {
                 games.update(game.id) {
-                    state = GameState.Roles
+                    state = GameState.ROLES
                 }
                 if (setups.find { gameId == game.id && count > 0 }.isEmpty()) {
                     setups.deleteMany { gameId == game.id }
@@ -864,7 +885,7 @@ object MafiaHandler {
             }
             parametrized(menuPreviewCommand) {
                 games.update(game.id) {
-                    state = GameState.Preview
+                    state = GameState.PREVIEW
                 }
                 reassignments.delete(game.id)
                 showPreview(bot, chatId, long(0), game)
@@ -911,7 +932,7 @@ object MafiaHandler {
                 }
 
                 games.update(game.id) {
-                    state = GameState.Type
+                    state = GameState.TYPE
                 }
                 modes.save(
                     GameMode(
@@ -941,11 +962,11 @@ object MafiaHandler {
             }
 
             parametrized(nameCancelCommand) {
-                if (game.state !in setOf(GameState.Rename, GameState.Dummy)) {
+                if (game.state !in setOf(GameState.RENAME, GameState.DUMMY)) {
                     return@parametrized
                 }
                 games.update(game.id) {
-                    state = GameState.Connect
+                    state = GameState.CONNECT
                 }
                 accounts.update(chatId) {
                     connectionId = null
@@ -954,11 +975,11 @@ object MafiaHandler {
             }
 
             parametrized(dummyCommand) {
-                if (game.state != GameState.Connect) {
+                if (game.state != GameState.CONNECT) {
                     return@parametrized
                 }
                 games.update(game.id) {
-                    state = GameState.Dummy
+                    state = GameState.DUMMY
                 }
                 bot.editMessageReplyMarkup(
                     ChatId.fromId(chatId),
@@ -1008,7 +1029,7 @@ object MafiaHandler {
                 }
 
                 games.update(game.id) {
-                    state = GameState.Preview
+                    state = GameState.PREVIEW
                 }
 
                 roleList.shuffle()
@@ -1068,7 +1089,7 @@ object MafiaHandler {
                             button(blankCommand named "Доступные игроки")
                         }
                         pairings.find { gameId == game.id && connectionId != game.reassignment?.connectionId }
-                            .sortedBy { it.connectionId }.forEach { pair ->
+                            .sortedBy { it.connection?.pos?: Int.MAX_VALUE }.forEach { pair ->
                                 row {
                                     button(
                                         swapConfirmCommand named
@@ -1153,37 +1174,43 @@ object MafiaHandler {
                     prepareScripts()
                     val scriptMap = roles.find { gameId == game.id }.filter { it.scripted }
                         .associate { it.name to Script(it.name, scriptDir) }
-                    scripts[game.id] = scriptMap
+                    val statusScript = try {
+                        Script(statusScriptName, scriptDir)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    scripts[game.id] = scriptMap + (if (statusScript != null) mapOf(statusScriptName to statusScript) else emptyMap())
+                    val list = game.pairingList.mapNotNull { pair ->
+                        connections.update(pair.connectionId) { notified = false }
+                        pair.connection?.let { con ->
+                            if (con.bot) {
+                                return@mapNotNull null
+                            }
+                            con.player?.let { acc ->
+                                val playerChat = ChatId.fromId(con.playerId)
+                                bot.deleteMessage(playerChat, acc.menuMessageId)
+                                val res = bot.sendMessage(
+                                    playerChat,
+                                    "Роли выданы"
+                                )
+                                if (res.isSuccess) {
+                                    val msgId = res.get().messageId
+                                    showPlayerGameMenu(con, playerChat, msgId, pair.roleId, LinkType.NONE, game, bot)
+                                    MessageLink(ObjectId(), game.id, con.playerId, msgId)
+                                } else {
+                                    null
+                                }
+                            }
+                        }
+                    }
+                    if (checks.get(CheckOption.GAME_MESSAGES)) {
+                        list.forEach {
+                            messageLinks.save(it)
+                        }
+                    }
                     if (checks.get(CheckOption.REVEAL_MENU)) {
                         games.update(game.id) {
-                            state = GameState.Reveal
-                        }
-                        val list = game.pairingList.mapNotNull { pair ->
-                            connections.update(pair.connectionId) { notified = false }
-                            pair.connection?.let { con ->
-                                if (con.bot) {
-                                    return@mapNotNull null
-                                }
-                                con.player?.let { acc ->
-                                    val playerChatId = con.playerId
-                                    bot.deleteMessage(ChatId.fromId(playerChatId), acc.menuMessageId)
-                                    bot.sendMsg(
-                                        playerChatId,
-                                        "Роли выданы"
-                                    ).inlineKeyboard { msgId ->
-                                        button(revealRoleCommand, pair.roleId, msgId)
-                                        button(gameInfoCommand, pair.roleId, msgId)
-                                        if (checks.get(CheckOption.ONE_MSG_PLAYER_INFO)) {
-                                            button(aliveInfoCommand, pair.roleId, msgId)
-                                        }
-                                    }.then { MessageLink(ObjectId(), game.id, con.playerId, it) }
-                                }
-                            }
-                        }
-                        if (checks.get(CheckOption.GAME_MESSAGES)) {
-                            list.forEach {
-                                messageLinks.save(it)
-                            }
+                            state = GameState.REVEAL
                         }
                         showRevealMenu(game, bot, chatId, long(1))
                     } else {
@@ -1205,26 +1232,6 @@ object MafiaHandler {
             parametrized(settingsCommand) {
                 game.host?.settings?.let {
                     showSettingsMenu(it, chatId, -1L, long(0), bot)
-                }
-            }
-            parametrized(nightCommand) {
-                towns.get(game.id)?.let { town ->
-                    try {
-                        bot.deleteMessage(ChatId.fromId(chatId), long(0))
-                        accounts.update(chatId) {
-                            menuMessageId = -1L
-                        }
-                        deleteGameTimers(bot, game.id)
-                        bot.sendMsg(
-                            chatId,
-                            "Результат дня:\n${shortLog(town).ifBlank { "Не произошло никаких событий" }}"
-                        )
-                        town.updateTeams()
-                        town.prepNight()
-                        showNightRoleMenu(town, chatId, bot, -1L)
-                    } catch (e: Exception) {
-                        log.error("Unable to start night, game: $game", e)
-                    }
                 }
             }
             parametrized(timerCommand) {
@@ -1290,23 +1297,12 @@ object MafiaHandler {
                         return@parametrized
                     }
 
-                    //updateSetup(path, roles, game, types, orders)
-                    if (checks.get(CheckOption.GAME_MESSAGES)) {
-                        game.messages.forEach { msg ->
-                            bot.deleteMessage(
-                                ChatId.fromId(msg.chatId),
-                                msg.messageId
-                            )
-                        }
+                    games.update(game.id) {
+                        state = GameState.CONNECT
                     }
 
-                    games.update(game.id) {
-                        state = GameState.Connect
-                    }
-                    pendings.deleteMany { host == chatId }
-                    //setups.deleteMany { gameId == game.id }
-                    pairings.deleteMany { gameId == game.id }
-                    towns.remove(game.id)
+                    resetGame(game, bot)
+
                     accounts.update(chatId) {
                         connectionId = null
                     }
@@ -1315,7 +1311,7 @@ object MafiaHandler {
                     }
                     connections.find { gameId == game.id }.forEach { con ->
                         if (!con.bot) {
-                            showPlayerMenu(con.playerId, -1L, bot, con.id, con.pos)
+                            showPlayerLobbyMenu(con.playerId, -1L, bot, con.id, con.pos)
                         }
                     }
 
@@ -1382,6 +1378,94 @@ object MafiaHandler {
                         showDayMenu(town, chatId, long(1), bot, game)
                     }
                 }
+                parametrized(nightCommand) {
+                    towns.get(game.id)?.let { town ->
+                        try {
+                            endDay(game, town, long(0), bot)
+                            town.prepNight()
+                            showNightRoleMenu(town, chatId, bot, -1L)
+                        } catch (e: Exception) {
+                            log.error("Unable to start night, game: $game", e)
+                        }
+                    }
+                }
+                parametrized(autoNightCommand) {
+                    towns.get(game.id)?.let { town ->
+                        try {
+                            endDay(game, town, long(0), bot)
+                            town.prepNight()
+                            val map = mutableMapOf<Int, AutoNightAction>()
+                            town.night.forEach { wake ->
+                                val action = AutoNightAction(
+                                    ObjectId(),
+                                    game.id,
+                                    wake.id
+                                )
+                                autoNightActions.save(
+                                    action
+                                )
+                                wake.players.forEach { person ->
+                                    // todo support for multiple wakes per player in auto-mode
+                                    //  (for now there is only one role that needs this and we never play with it)
+                                    if (person.pos !in map) {
+                                        map[person.pos] = action
+                                    }
+                                }
+                            }
+                            val alive = town.night.associateWith { wake ->
+                                wake.alivePlayers().sortedWith(
+                                    compareBy(
+                                        { -it.roleData.priority },
+                                        { it.pos }
+                                    )
+                                )
+                            }
+                            game.connectionList.forEach {
+                                if (!it.bot && town.playerMap[it.pos]?.alive == true) {
+                                    map[it.pos]?.let { action ->
+                                        it.pairing?.role?.let { role ->
+                                            action.wake?.let { wake ->
+                                                alive[wake]?.let { currentAlive ->
+                                                    val actor = AutoNightActor(
+                                                        ObjectId(),
+                                                        action.id,
+                                                        it.id,
+                                                        currentAlive.firstOrNull()?.pos == it.pos
+                                                    )
+                                                    autoNightActors.save(
+                                                        actor
+                                                    )
+
+                                                    val msgId = showAutoNightPrepMenu(
+                                                        actor.id,
+                                                        role,
+                                                        it.playerId,
+                                                        bot
+                                                    )
+                                                    nightPlayerMessages.save(
+                                                        NightPlayerMessage(
+                                                            it.playerId,
+                                                            msgId,
+                                                            it.id,
+                                                            game.id
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            showAutoNightHostMenu(town, chatId, bot, -1L)
+                        } catch (e: Exception) {
+                            log.error("Unable to start auto-night, game: $game", e)
+                        }
+                    }
+                }
+                parametrized(autoNightUpdCommand) {
+                    town.night.forEach { it.updateStatus() }
+                    showAutoNightHostMenu(town, chatId, bot, long(0))
+                }
                 parametrized(selectCommand) {
                     if (isId(2)) {
                         nightSelection(town, int(0), chatId, bot, long(1), id(2))
@@ -1389,7 +1473,8 @@ object MafiaHandler {
                 }
                 parametrized(executeActionCommand) {
                     if (town.index < town.night.size) {
-                        executeNightAction(town, town.night[town.index], bot, chatId, long(0))
+                        showNightActionMenu(town, town.night[town.index], bot, chatId, long(0))
+                        town.index++
                     } else {
                         skipNightRole(town, chatId, long(0), bot)
                     }
@@ -1409,12 +1494,23 @@ object MafiaHandler {
                     showNightRoleMenu(town, chatId, bot, long(0))
                 }
                 parametrized(dayCommand) {
+                    deleteNightPlayerMenus(game, bot)
+                    nightHostMessages.delete(chatId)
+
                     bot.deleteMessage(ChatId.fromId(chatId), long(0))
                     town.startDay(chatId, bot, game)
                     messageLinks.find { gameId == game.id && type == LinkType.ALIVE }.forEach { link ->
                         connections.find { gameId == game.id && playerId == link.chatId }.forEach { con ->
                             town.playerMap[con.pos]?.let { player ->
-                                showAliveMenu(game, con, bot, link.messageId, player.roleData.id)
+                                showPlayerGameMenu(
+                                    con,
+                                    ChatId.fromId(link.chatId),
+                                    link.messageId,
+                                    player.roleData.id,
+                                    LinkType.ALIVE,
+                                    game,
+                                    bot
+                                )
                             }
                         }
                     }
@@ -1437,6 +1533,10 @@ object MafiaHandler {
                             showDayMenu(town, chatId, long(0), bot, game)
                         }
                     }
+                    parametrized(settingsBackCommand) {
+                        autoNightInputs.delete(chatId)
+                        showSettingsMenu(settings, chatId, long(0), long(1), bot)
+                    }
                     parametrized(hostSettingCommand) {
                         updateSettingsView(
                             chatId,
@@ -1458,6 +1558,113 @@ object MafiaHandler {
                                 bot,
                                 HostOptions.valueOf(str(2)).fullName
                             )
+                        }
+                    }
+                    parametrized(autoSingLimDescCommand) {
+                        hostSettings.get(chatId)?.let { settings ->
+                            showSettingsMenu(
+                                settings,
+                                chatId,
+                                long(0),
+                                long(1),
+                                bot,
+                                "Лимит времени на действие ролей без команды вовремя авто-ночи"
+                            )
+                        }
+                    }
+                    parametrized(autoSingLimSelCommand) {
+                        autoNightInputs.save(
+                            AutoNightInput(
+                                chatId,
+                                AutoNightInputType.SINGLE,
+                                long(0),
+                                long(1)
+                            )
+                        )
+                        hostSettings.get(chatId)?.let { settings ->
+                            bot.editMessageText(
+                                ChatId.fromId(chatId),
+                                long(0),
+                                text = "Актуальное значение: " +
+                                        "${settings.autoNight?.actionSingleLimit?.toSeconds()?.pretty()}\n" +
+                                        "Введите лимит времени для ролей без команды вовремя авто-ночи:",
+                                replyMarkup = inlineKeyboard {
+                                    button(settingsBackCommand, long(0), long(1))
+                                }
+                            )
+                        }
+                    }
+                    parametrized(autoTeamLimDescCommand) {
+                        hostSettings.get(chatId)?.let { settings ->
+                            showSettingsMenu(
+                                settings,
+                                chatId,
+                                long(0),
+                                long(1),
+                                bot,
+                                "Лимит времени на действие командных ролей вовремя авто-ночи"
+                            )
+                        }
+                    }
+                    parametrized(autoTeamLimSelCommand) {
+                        autoNightInputs.save(
+                            AutoNightInput(
+                                chatId,
+                                AutoNightInputType.TEAM,
+                                long(0),
+                                long(1)
+                            )
+                        )
+                        bot.editMessageText(
+                            ChatId.fromId(chatId),
+                            long(0),
+                            text = "Актуальное значение: " +
+                                    "${settings.autoNight?.actionTeamLimit?.toSeconds()?.pretty()}\n" +
+                                    "Введите лимит времени для командных ролей вовремя авто-ночи:",
+                            replyMarkup = inlineKeyboard {
+                                button(settingsBackCommand, long(0), long(1))
+                            }
+                        )
+                    }
+                    parametrized(shareGameCommand) {
+                        bot.editMessageText(
+                            ChatId.fromId(chatId),
+                            long(0),
+                            text = "Выберите игрока:",
+                            replyMarkup = inlineKeyboard {
+                                connections.find { gameId == game.id && !bot }.sortedBy { it.pos }.forEach { con ->
+                                    button(
+                                        shareSelectCommand named (con.pos.toString() + ". " + con.name()),
+                                        long(0),
+                                        con.id
+                                    )
+                                }
+                                button(deleteMsgCommand named "Закрыть", long(0))
+                            }
+                        )
+                    }
+                    parametrized(shareSelectCommand) {
+                        connections.get(id(1))?.let { con ->
+                            gameShares.save(
+                                GameShare(
+                                    con.id,
+                                    game.id
+                                )
+                            )
+                            bot.deleteMessage(ChatId.fromId(chatId), long(0))
+                            messageLinks.find { chatId == con.playerId && gameId == game.id }
+                                .firstOrNull()
+                                ?.let {
+                                    showPlayerGameMenu(
+                                        con,
+                                        ChatId.fromId(con.playerId),
+                                        it.messageId,
+                                        town.playerMap[con.pos]?.roleData?.id ?: ObjectId(),
+                                        it.type,
+                                        game,
+                                        bot
+                                    )
+                                }
                         }
                     }
                 }
@@ -1490,7 +1697,7 @@ object MafiaHandler {
             block({ notNull { games.get(con.gameId) } }) { game ->
                 parametrized(acceptHostingCommand) {
                     if (game.id == id(0)
-                        && game.state == GameState.ChangeHost
+                        && game.state == GameState.REHOST
                         && game.hostId == long(1)
                     ) {
                         rehosts.get(game.id)?.let { rehost ->
@@ -1515,7 +1722,7 @@ object MafiaHandler {
                                             state = AccountState.Host
                                         }
                                         games.update(game.id) {
-                                            state = GameState.Connect
+                                            state = GameState.CONNECT
                                             hostId = chatId
                                         }
                                         rehosts.delete(game.id)
@@ -1534,7 +1741,7 @@ object MafiaHandler {
                 }
                 parametrized(declineHostingCommand) {
                     if (game.id == id(0)
-                        && game.state == GameState.ChangeHost
+                        && game.state == GameState.REHOST
                         && game.hostId == long(1)
                     ) {
                         rehosts.get(game.id)?.let { rehost ->
@@ -1550,7 +1757,7 @@ object MafiaHandler {
                                     }
                                     bot.deleteMessage(ChatId.fromId(con.playerId), long(2))
                                     games.update(game.id) {
-                                        state = GameState.Connect
+                                        state = GameState.CONNECT
                                     }
                                     rehosts.delete(game.id)
                                     showLobbyMenu(prevHost.chatId, prevHost.menuMessageId, game, bot)
@@ -1560,17 +1767,10 @@ object MafiaHandler {
                     }
                 }
                 parametrized(gameInfoCommand) {
-                    if (game.state == GameState.Game || game.state == GameState.Reveal) {
-                        val mode = modes.get(game.id)?.mode
-                        val roleMap = getRoles(game)
-                        val playerCount = roleMap.map { it.value }.sum()
-                        val players = getPlayerDescs(con)
+                    if (game.state == GameState.GAME || game.state == GameState.REVEAL) {
                         val desc =
-                            (if (mode != null) "<b>Тип игры</b>: ${mode.type}\n${mode.desc}\n\n" else "") +
-                                    "<b>Количество игроков</b>: $playerCount\n\n${roleDesc(roleMap)}" +
-                                    (if (players.size > 1) "\n\n<b>Игроки в команде</b>:\n" + players.joinToString(
-                                        "\n"
-                                    ) else "")
+                            getGameInfo(game, con)
+                        val chat = ChatId.fromId(chatId)
                         if (checks.get(CheckOption.ONE_MSG_PLAYER_INFO)) {
                             bot.editMessageText(
                                 ChatId.fromId(chatId),
@@ -1601,7 +1801,7 @@ object MafiaHandler {
                     }
                 }
                 parametrized(revealRoleCommand) {
-                    if (game.state == GameState.Game || game.state == GameState.Reveal) {
+                    if (game.state == GameState.GAME || game.state == GameState.REVEAL) {
                         try {
                             roles.get(id(0))?.let { role ->
                                 val chat = con.playerId
@@ -1660,9 +1860,199 @@ object MafiaHandler {
                 parametrized(aliveInfoCommand) {
                     showAliveMenu(game, con, bot, long(1), id(0))
                 }
+                parametrized(playerMenuCommand) {
+                    showPlayerGameMenu(
+                        con,
+                        ChatId.fromId(con.playerId),
+                        long(1),
+                        id(0),
+                        LinkType.valueOf(str(2)),
+                        game,
+                        bot
+                    )
+                }
+                block({ notNull { towns[game.id] } }) { town ->
+                    parametrized(autoNightPlayCommand) {
+                        autoNightActors.get(id(1))?.let { actor ->
+                            actor.action?.let { action ->
+                                if (town.night.size > action.wakeId) {
+                                    val wake = town.night[action.wakeId]
+                                    if (con.pos !in wake.players.map { it.pos }) {
+                                        log.warn("Player ${con.playerId} tried to access action of another player in game ${game.id}")
+                                        return@parametrized
+                                    }
+                                    wake.status = WakeStatus.action()
+
+                                    action.actors.forEach {
+                                        it.connection?.nightPlayerMessage?.let { msg ->
+                                            showAutoNightPlayerMenu(
+                                                wake, town, it, msg.chatId, msg.messageId, bot
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    parametrized(forceLeadCommand) {
+                        val chat = ChatId.fromId(chatId)
+                        val res = bot.sendMessage(
+                            chat,
+                            text = "Вы уверены, что хотите принимать решение за команду?"
+                        )
+                        if (res.isSuccess) {
+                            val msgId = res.get().messageId
+                            bot.editMessageReplyMarkup(
+                                chat,
+                                msgId,
+                                replyMarkup = inlineKeyboard {
+                                    row {
+                                        button(leadConfirmCommand, long(0), int(1), msgId)
+                                        button(deleteMsgCommand named "Нет", msgId)
+                                    }
+                                }
+                            )
+                            timedMessages.save(
+                                TimedMessage(
+                                    ObjectId(),
+                                    chatId,
+                                    msgId,
+                                    Date(System.currentTimeMillis() + deleteForceLeadConfirmAfter.toMillis())
+                                )
+                            )
+                        }
+                    }
+                    parametrized(leadConfirmCommand) {
+                        bot.deleteMessage(ChatId.fromId(chatId), long(2))
+                        if (town.night.size > int(1)) {
+                            val wake = town.night[int(1)]
+                            if (con.pos !in wake.players.map { it.pos }) {
+                                log.warn("Player ${con.playerId} tried to access action of another player in game ${game.id}")
+                                return@parametrized
+                            }
+                            con.autoNightActor?.let { actor ->
+                                autoNightActors.updateMany({ actionId == actor.actionId }) {
+                                    leader = false
+                                }
+                                autoNightActors.update(actor.id) {
+                                    leader = true
+                                }
+                                actor.action?.actors?.forEach {
+                                    it.connection?.nightPlayerMessage?.let { msg ->
+                                        showAutoNightPlayerMenu(
+                                            wake, town, it, msg.chatId, msg.messageId, bot
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    parametrized(selectTargetCommand) {
+                        if (town.night.size > int(1)) {
+                            val wake = town.night[int(1)]
+                            if (con.pos !in wake.players.map { it.pos }) {
+                                log.warn("Player ${con.playerId} tried to access action of another player in game ${game.id}")
+                                return@parametrized
+                            }
+                            con.autoNightActor?.let { actor ->
+                                val selected = actor.selections.associate { it.selection to it.id }
+                                if (int(2) in selected) {
+                                    selected[int(2)]?.let { autoNightSelections.delete(it) }
+                                } else {
+                                    autoNightSelections.save(
+                                        AutoNightSelection(
+                                            ObjectId(),
+                                            actor.actionId,
+                                            actor.id,
+                                            int(2)
+                                        )
+                                    )
+                                }
+                                nightMessageUpdates.save(
+                                    NightMessageUpdate(actor.actionId, game.id)
+                                )
+                                showAutoNightPlayerMenu(
+                                    wake, town, actor, chatId, long(0), bot
+                                )
+                            }
+                        }
+                    }
+                    parametrized(autoNightSkipCommand) {
+                        if (town.night.size > int(1)) {
+                            val wake = town.night[int(1)]
+                            if (con.pos !in wake.players.map { it.pos }) {
+                                log.warn("Player ${con.playerId} tried to access action of another player in game ${game.id}")
+                                return@parametrized
+                            }
+                            wake.status = WakeStatus.skipped()
+                            con.autoNightActor?.let { actor ->
+                                actor.action?.actors?.forEach {
+                                    it.connection?.nightPlayerMessage?.let { msg ->
+                                        showAutoNightPlayerMenu(
+                                            wake, town, it, msg.chatId, msg.messageId, bot
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    parametrized(autoNightDoneCommand) {
+                        con.autoNightActor?.let { actor ->
+                            if (!actor.leader) {
+                                return@parametrized
+                            }
+                            val wake = actor.action?.wake
+                            if (wake != null) {
+                                wake.selections.addAll(actor.selections.map { it.selection }.toList())
+                                val text = executeNightAction(town, wake, hideRoles = true)
+                                wake.status = WakeStatus.woke(text)
+                                actor.action?.actors?.forEach {
+                                    it.connection?.nightPlayerMessage?.let { msg ->
+                                        showAutoNightPlayerMenu(
+                                            wake, town, it, msg.chatId, msg.messageId, bot
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+private fun endDay(
+    game: Game,
+    town: Town,
+    messageId: Long,
+    bot: Bot,
+) {
+    bot.deleteMessage(ChatId.fromId(game.hostId), messageId)
+    accounts.update(game.hostId) {
+        menuMessageId = -1L
+    }
+    deleteGameTimers(bot, game.id)
+    val hideRoles = game.host?.settings?.hideRolesMode ?: false
+    bot.sendMessage(
+        ChatId.fromId(game.hostId),
+        "Результат дня:\n${shortLog(town, hideRoles).ifBlank { "Не произошло никаких событий" }}"
+    )
+    town.updateTeams()
+}
+
+fun getGameInfo(game: Game, con: Connection): String {
+    val mode = modes.get(game.id)?.mode
+    val roleMap = getRoles(game)
+    val playerCount = roleMap.map { it.value }.sum()
+    val players = getPlayerDescs(con)
+    val desc =
+        (if (mode != null) "<b>Тип игры</b>: ${mode.type}\n${mode.desc}\n\n" else "") +
+                "<b>Количество игроков</b>: $playerCount\n\n${roleDesc(roleMap)}" +
+                (if (players.size > 1) "\n\n<b>Игроки в команде</b>:\n" + players.joinToString(
+                    "\n"
+                ) else "")
+    return desc
 }
 
 private fun showReassignMenu(

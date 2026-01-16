@@ -3,9 +3,11 @@ package org.example
 import kotlinx.serialization.Serializable
 import org.bson.codecs.pojo.annotations.BsonId
 import org.bson.types.ObjectId
+import org.example.game.WakeStatus
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.*
+import java.time.Duration
 
 data class Account(
     @BsonId val id: ObjectId,
@@ -31,7 +33,7 @@ typealias GameId = ObjectId
 data class Game(
     @BsonId val id: GameId,
     var hostId: Long,
-    var state: GameState = GameState.Connect,
+    var state: GameState = GameState.CONNECT,
     val createdAt: Date = Date(),
     var playedAt: Date? = null,
     val creatorId: Long = hostId,
@@ -42,11 +44,14 @@ data class Game(
     val mode: GameMode? get() = modes.get(id)
     val rehost: Rehost? get() = rehosts.get(id)
     val reassignment: Reassignment? get() = reassignments.get(id)
+    val nightHostMessage: NightHostMessage? get() = nightHostMessages.get(hostId)
     val messages: List<MessageLink> get() = messageLinks.find(id) { gameId == it }
     val pairingList: List<Pairing> get() = pairings.find(id) { gameId == it }
     val connectionList: List<Connection> get() = connections.find(id) { gameId == it}
+    val shares: List<GameShare> get() = gameShares.find(id) { gameId == it }
+    val nightPlayerMessageList: List<NightPlayerMessage> get() = nightPlayerMessages.find(id) { gameId == it }
 
-    fun name() = (if (state == GameState.Game) "🎮" else "👥") + (accounts.get(hostId)?.fullName()
+    fun name() = (if (state == GameState.GAME) "🎮" else "👥") + (accounts.get(hostId)?.fullName()
         ?: "") + " (" + dateFormat.format(
         ZonedDateTime.ofInstant(
             (playedAt ?: createdAt).toInstant(),
@@ -71,6 +76,10 @@ data class Connection(
 
     val game: Game? get() = games.get(gameId)
     val player: Account? get() = if (bot) null else accounts.get(playerId)
+    val share: GameShare? get() = gameShares.get(id)
+    val pairing: Pairing? get() = pairings.find(id) { this.connectionId == it }.firstOrNull()
+    val nightPlayerMessage: NightPlayerMessage? get() = nightPlayerMessages.find(id) { this.playerId == it }.firstOrNull()
+    val autoNightActor: AutoNightActor? get() = autoNightActors.find(id) { this.connectionId == it }.firstOrNull()
 }
 
 data class Pending(
@@ -191,9 +200,21 @@ data class HostSettings(
     var timer: Boolean = false,
     var hideDayPlayers: Boolean = false,
     var playersHidden: Boolean = false,
-    var hideRolesMode: Boolean = false
+    var hideRolesMode: Boolean = false,
+    var autoNight: AutoNightSettings? = AutoNightSettings()
 ) {
     val host: Account? get() = accounts.get(hostId)
+
+    data class AutoNightSettings(
+        var enabled: Boolean = false,
+        var actionSingleLimitSec: Int = 15,
+        var actionTeamLimitSec: Int = 30
+    ) {
+        val actionSingleLimit: Duration
+            get() = Duration.ofSeconds(actionSingleLimitSec.toLong())
+        val actionTeamLimit: Duration
+            get() = Duration.ofSeconds(actionTeamLimitSec.toLong())
+    }
 }
 
 // todo fix naming
@@ -202,6 +223,7 @@ data class Person(
     val name: String,
     val roleData: Role,
     var team: String,
+    var connectionId: ConnectionId,
     var alive: Boolean = true,
     var protected: Boolean = false,
     var fallCount: Int = 0
@@ -216,16 +238,27 @@ data class Type(
     @BsonId val id: TypeId,
     val gameId: GameId,
     val name: String,
-    val choice: Int
+    val choice: Int,
+    val displayName: String
 ) {
     val game: Game? get() = games.get(gameId)
 }
 
 data class Wake(
+    val id: Int,
     val type: Type,
-    val players: List<Person>
+    val players: List<Person>,
+    val selections: MutableList<Int> = mutableListOf(),
+    var status: WakeStatus = WakeStatus.none()
 ) {
     fun actor() = players.firstOrNull { it.alive }?: players.firstOrNull()
+    fun alivePlayers() = players.filter { it.alive && connections.get(it.connectionId)?.bot == false }
+    fun filled() = type.choice <= selections.size
+    fun updateStatus() {
+        if (status == WakeStatus.none() && (filled() || players.all { !it.alive })) {
+            status = WakeStatus.woke("Все игроки мертвы")
+        }
+    }
 }
 
 @Serializable
@@ -233,13 +266,15 @@ data class GameSet(
     val name: String,
     val order: List<String>,
     val type: List<Choice>,
-    val roles: List<RoleData>
+    val roles: List<RoleData>,
+    val teamDisplayNames: Map<String, String>
 )
 
 @Serializable
 data class Choice(
     val name: String,
-    val choice: Int
+    val choice: Int,
+    val displayName: String
 )
 
 @Serializable
@@ -380,3 +415,86 @@ data class Reassignment(
     val game: Game? get() = games.get(gameId)
     val connection: Connection? get() = connections.get(connectionId)
 }
+
+data class GameShare (
+    val connectionId: ConnectionId,
+    val gameId: GameId
+) {
+    val connection: Connection? get() = connections.get(connectionId)
+    val game: Game? get() = games.get(gameId)
+}
+
+data class AutoNightInput(
+    val chatId: Long,
+    val type: AutoNightInputType,
+    val settingsMessageId: Long,
+    val gameMessageId: Long
+)
+
+data class NightPlayerMessage(
+    val chatId: Long,
+    val messageId: Long,
+    val playerId: ConnectionId,
+    val gameId: GameId
+) {
+    val connection: Connection? get() = connections.get(playerId)
+    val game: Game? get() = games.get(gameId)
+    val account: Account? get() = accounts.get(chatId)
+}
+
+data class NightHostMessage(
+    val chatId: Long,
+    val messageId: Long,
+    val gameId: GameId
+) {
+    val game: Game? get() = games.get(gameId)
+}
+
+typealias AutoNightActionId = ObjectId
+data class AutoNightAction(
+    val id: AutoNightActionId,
+    val gameId: GameId,
+    val wakeId: Int
+) {
+    val game: Game? get() = games.get(gameId)
+    val wake: Wake? get() = towns[gameId]?.night[wakeId]
+    val actors: List<AutoNightActor> get() = autoNightActors.find(id) { actionId == it }
+}
+
+typealias AutoNightActorId = ObjectId
+data class AutoNightActor(
+    val id: AutoNightActorId,
+    val actionId: AutoNightActionId,
+    val connectionId: ConnectionId,
+    var leader: Boolean = false
+) {
+    val connection: Connection? get() = connections.get(connectionId)
+    val action: AutoNightAction? get() = autoNightActions.get(actionId)
+    val selections: List<AutoNightSelection> get() = autoNightSelections.find(id) { actorId == it }
+}
+
+typealias AutoNightSelectionId = ObjectId
+data class AutoNightSelection(
+    val id: AutoNightSelectionId,
+    val actionId: AutoNightActionId,
+    val actorId: AutoNightActorId,
+    val selection: Int
+) {
+    val action: AutoNightAction? get() = autoNightActions.get(actionId)
+    val actor: AutoNightActor? get() = autoNightActors.get(actorId)
+}
+
+data class NightMessageUpdate(
+    val actionId: AutoNightActionId,
+    val gameId: GameId
+) {
+    val action: AutoNightAction? get() = autoNightActions.get(actionId)
+}
+
+typealias TeamNameId = ObjectId
+data class TeamName(
+    val id: TeamNameId,
+    val gameId: GameId,
+    val team: String,
+    val name: String
+)
