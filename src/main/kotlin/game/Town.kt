@@ -10,7 +10,6 @@ import org.example.telegram.showDayMenu
 data class Town(
     val gameId: GameId,
     val players: List<Person>,
-    val order: List<String>,
     val types: Map<String, Type>,
     var mode: Mode = Mode.OPEN,
     var day: Int = 1
@@ -21,8 +20,6 @@ data class Town(
     val actions = mutableListOf<Action>()
     val night = mutableListOf<Wake>()
     var index = 0
-    private val storage: MutableMap<Int, Any> = mutableMapOf()
-    private var storageIndex = 1
 
     val selections = mutableSetOf<Int>()
 
@@ -41,13 +38,6 @@ data class Town(
         playerMap[pos]?.protected = !(playerMap[pos]?.protected ?: true)
     }
 
-    fun store(value: Any): Int {
-        storage[storageIndex] = value
-        return storageIndex++
-    }
-
-    fun get(key: Int) = storage[key]
-
     fun rollback() {
         if (index == 0) {
             return
@@ -55,36 +45,54 @@ data class Town(
         index--
         night[index].let { wake ->
             val actors = wake.players.map { it.pos }.toSet()
-            actions.removeIf { res -> res.actors.any { it in actors } }
+            actions.removeIf { res -> res.actors.any { it.pos in actors } }
         }
+    }
+
+    fun startDusk() {
+        scripts[gameId]?.forEach {
+            it.value.dusk()
+        }
+    }
+
+    fun startDawn() {
+        scripts[gameId]?.forEach {
+            it.value.dawn()
+        }
+        updateTeams()
     }
 
     fun prepNight() {
         actions.clear()
         selections.clear()
-        val map = mutableMapOf<String, MutableList<Person>>()
+        val map = mutableMapOf<Type, MutableList<Person>>()
         for (person in players) {
-            if (person.roleData.scripted) {
-                val script = scripts[gameId]?.get(person.roleData.name)
-                script?.type(players) ?: "none"
-            } else {
-                "none"
-            }.split(",").forEach {
-                map.getOrPut(it.trim()) { mutableListOf() }.add(person)
+            val script = scripts[gameId]?.get(person.types.firstOrNull())
+            person.types = script?.type(players).let {
+                if (it == null || it.isEmpty()) {
+                    person.types
+                } else {
+                    it
+                }
+            }
+            person.types.forEach {
+                if (it in types && types[it]?.passive == false) {
+                    map.getOrPut(types[it]!!) { mutableListOf() }.add(person)
+                }
             }
         }
         night.clear()
         index = 0
-        for (type in order) {
-            if ((map[type]?.size ?: 0) > 0 && (mode == Mode.CLOSED || (map[type]?.filter { it.alive }?.size
-                    ?: 0) > 0)
-            ) {
+        for (type in map.keys.sortedBy { it.order }) {
+            if (mode == Mode.CLOSED || (map[type]?.filter { it.alive }?.size ?: 0) > 0) {
                 night.add(
                     Wake(
                         night.size,
-                        types[type]!!,
+                        type,
                         map[type]?.sortedBy { it.roleData.priority }?.reversed() ?: emptyList()
-                    )
+                    ).also {
+                        it.choices = playerSelectionForWake(it)
+                    }
                 )
             }
         }
@@ -92,7 +100,7 @@ data class Town(
 
     fun updateTeams() {
         players.forEach {
-            val script = scripts[gameId]?.get(it.roleData.name)
+            val script = scripts[gameId]?.get(it.types.firstOrNull())
             val team = script?.team(players) ?: it.team
             it.team = team
         }
@@ -116,7 +124,7 @@ data class Town(
 
         grouped[BlockAction::class]?.forEach { action ->
             blockers.add(action)
-            val select = action.selection.map { it.pos }.toSet()
+            val select = action.selection.toSet()
             dependants[action] = mutableSetOf()
             actions.filter { it.actors.toSet().intersect(select).isNotEmpty() }.forEach {
                 blocked.add(it)
@@ -276,7 +284,7 @@ data class Town(
 
         bot.sendMessage(
             chat,
-            "Результат ночи:\n" + shortLog(this, hideRoles).ifBlank { "Не произошло никаких событий" }
+            "Результат ночи:\n" + shortLog(this, !hideRoles).ifBlank { "Не произошло никаких событий" }
         )
         actions.clear()
 
@@ -327,8 +335,7 @@ data class Town(
         if (scripts[gameId]?.containsKey(statusScriptName) == true) {
             try {
                 val script = scripts[gameId]?.get(statusScriptName)
-                val util = LuaInterface(emptyList(), emptyList(), this)
-                val status = script?.status(players, util)
+                val status = script?.status(players)
                 if (status != null) {
                     if (status is WonState) {
                         bot.sendMessage(
@@ -351,5 +358,22 @@ data class Town(
             }
         }
         showDayMenu(this, chatId, -1L, bot, game)
+    }
+
+    internal fun playerSelectionForWake(wake: Wake): List<Choice> {
+        val players = players.sortedBy { it.pos }
+        val script = scripts[gameId]?.get(wake.type.name)
+        val default = { players.filter { it.alive }.map { PersonChoice(it) } }
+        if (script != null) {
+            return script.choice(
+                players,
+                wake.players
+            ).ifEmpty {
+                default()
+            }
+        } else {
+            log.error("Script not found for game ${gameId} role ${wake.type.name}")
+            return default()
+        }
     }
 }

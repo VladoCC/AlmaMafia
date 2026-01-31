@@ -1,10 +1,13 @@
--- Actions:
--- 1 - kill
--- 2 - heal
--- 3 - block
-
 function action(list)
-  return $KILL(list[1])
+  $KILL(list[1])
+end
+
+function dawn()
+
+end
+
+function dusk()
+
 end
 
 function passive(type)

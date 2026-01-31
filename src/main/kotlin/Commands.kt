@@ -10,6 +10,7 @@ val updateCommand = command("Обновить список игр", "update", 1)
 
 val playerNumCommand = command("", "playerNum", 3)
 val playerConfirmCommand = command("Ввести ▶️", "playerConfirm", 3)
+val confirmNumCommand = command("Подтвердить", "confirmNum", 2)
 val mainMenuCommand = command("🔙 Покинуть игру", "mainMenu", 1)
 
 val detailsCommand = command("", "details", 2)
@@ -36,10 +37,6 @@ val declineHostingCommand = command("Нет", "declineHosting", 3)
 val menuLobbyCommand = command("◀️ Меню игроков", "menuLobby", 1)
 val menuRolesCommand = command("Меню ролей ▶️", "menuRoles", 1)
 val menuPreviewCommand = command("Меню распределения ▶️", "menuPreview", 1)
-val gameCommand = command("Начать игру 🎮", "game", 2)
-
-val markBotCommand = command("🌚", "markBot", 2)
-val proceedCommand = command("☀️ Начать день", "proceed", 1)
 
 val posSetCommand = command("Ввести ▶️", "posSet", 3)
 
@@ -50,10 +47,14 @@ val roleCommand = command("", "role", 2)
 val incrCommand = command("➕", "incr", 2)
 val decrCommand = command("➖", "decr", 2)
 
+val changeScriptCommand = command("🎭 Сменить набор ролей", "changeScript", 2)
 val resetRolesCommand = command("🚮 Сбросить выбор ролей", "resetRoles", 2)
 val previewCommand = command("🔀 Раздать роли", "preview", 2)
-val gameModeCommand = command("", "mode", 2)
-val toggleHideRolesModePreviewCommand = command("🕶️ Скрывать роли", "toggleHideRolesModePreview", 1)
+
+val menuWeightCommand = command("⚖️ Статистика игроков", "menuWeight", 1)
+val toggleHideRolesCommand = command("🕶️ Скрывать роли", "toggleHideRoles", 1)
+
+val menuDistributionCommand = command("", "menuDistribution", 1)
 
 val reassignRoleCommand = command("◀️ Выбранные роли", "reassignRoles", 2)
 val reassignAnyCommand = command("Все роли ▶️", "reassignAny", 2)
@@ -61,6 +62,12 @@ val deletePairCommand = command("😶‍🌫️ Убрать роль", "deleteP
 val reassignConfirmCommand = command("", "reassignConfirm", 2)
 val swapPairsCommand = command("↔️ Поменять роли местами", "swapPairs", 1)
 val swapConfirmCommand = command("", "swapConfirm", 2)
+
+val gameCommand = command("Начать игру 🎮", "game", 2)
+val gameModeCommand = command("", "mode", 2)
+
+val markBotCommand = command("🌚", "markBot", 2)
+val proceedCommand = command("☀️ Начать день", "proceed", 1)
 
 val dayDetailsCommand = command("", "dayDetails", 2)
 val statusCommand = command("Статус: Ошибка", "status", 2)
@@ -70,7 +77,7 @@ val fallCommand = command("", "fall", 2)
 
 val dayBackCommand = command("◀️ Назад", "dayBack", 1)
 
-val settingsCommand = command(/*📋*/"⚙️ Опции", "settings", 1)
+val settingsCommand = command("⚙️ Опции", "settings", 1)
 val settingsBackCommand = command("◀️ Назад", "settingsBack", 2)
 
 val settingDescCommand = command("-", "settingDesc", 3)
@@ -96,7 +103,7 @@ val dayCommand = command("☀️ Начать день", "day", 1)
 val autoNightCommand = command("🤖🌙 Автоночь", "autoNight", 1)
 val autoNightUpdCommand = command("🔄 Обновить статус", "autoNightUpd", 1)
 
-val autoNightPlayCommand = command("👀 Проснуться", "autoNightPlay", 2)
+val autoNightPlayCommand = command("👀 Проснуться", "autoNightPlay", 3)
 val selectTargetCommand = command("", "selectTarget", 3)
 val autoNightSkipCommand = command("💤 Пропустить", "autoNightSkip", 2)
 val autoNightDoneCommand = command("✅ Подтвердить", "autoNightDone", 2)
@@ -110,6 +117,8 @@ val filterCommand = command("Фильтр: Ошибка", "fltr", 1)
 val timerDeleteCommand = command("❌️", "timerDelete", 1)
 val timerStateCommand = command("", "timerState", 1)
 val timerResetCommand = command("🔄", "timerReset", 1)
+
+val selectWinnerCommand = command("", "selectWinner", 2)
 
 val revealRoleCommand = command("👀 Показать роль", "reveal", 2)
 val gameInfoCommand = command("ℹ️ Информация об игре", "gameInfo", 2)
@@ -131,6 +140,7 @@ val gameLimitOnCommand = command("Off", "gameLimitOn", 2)
 val gameLimitOffCommand = command("❌", "gameLimitOff", 2)
 val shareCommand = command("Off", "share", 2)
 val canReassignCommand = command("Off", "canReassign", 2)
+val distributionCommand = command("Off", "distribution", 2)
 val deleteHostCommand = command("❌ Удалить ведущего", "deleteHost", 2)
 val promoteHostCommand = command("🧑‍🧒‍🧒 Сделать администратором", "promoteHost", 2)
 val allowHostCommand = command("✅", "allowHost", 2)
@@ -156,8 +166,13 @@ val cancelName = command("Нет", "nameDeny", 2)
 val acceptStopCommand = command("Да", "stopAccept", 2)
 val acceptLeaveCommand = command("Да", "leaveAccept", 2)
 val acceptRehostCommand = command("Да", "rehostAccept", 1)
+val acceptEndCommand = command("👑 Подтвердить", "endAccept", 2)
+
+val stopLobbyCommand = command("🚪 В главное меню", "stopLobby", 1)
 
 val closePopupCommand = command("Закрыть", "closePopup", 1)
+
+val scriptStatCommand = command("", "scriptStatCommand", 2)
 
 val adCommand = command("/ad")
 val adNewCommand = command("/newad")
@@ -170,10 +185,12 @@ val menuCommand = command("/menu")
 val changeNameCommand = command("/changename")
 
 val startGameCommand = command("🎮 Запустить игру")
-val restartGameCommand = command("🔙 Перезапустить игру")
-val stopGameCommand = command("🚪 Завершить игру")
+val restartGameCommand = command("🔙 В лобби")
+val endGameCommand = command("👑 Завершить игру")
+val stopGameCommand = command("🚪 В главное меню")
 val leaveGameCommand = command("🚪 Покинуть игру")
 
+val statCommand = command("📚 Статистика")
 val adminPanelCommand = command("⚛️ Меню администратора")
 
 val startGameLegacyCommand = command("Запустить игру")

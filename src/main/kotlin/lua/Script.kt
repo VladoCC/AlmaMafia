@@ -1,9 +1,9 @@
 package org.example.lua
 
-import org.example.Config
+import org.example.Game
 import org.example.Person
 import org.example.logger
-import org.example.scriptDir
+import org.example.tempDir
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LoadState
 import org.luaj.vm2.LuaValue
@@ -17,58 +17,120 @@ import java.nio.file.Files.exists
 import java.nio.file.Path
 import java.nio.file.Paths
 
-class Script(name: String, scriptDir: Path) {
+private val log = logger<Script>()
+
+class Script(scriptPath: Path) : MemoryStore {
     private val lua: Globals = Globals()
+    private val storage: MutableMap<Int, Any> = mutableMapOf()
+    private var storageIndex = 1
 
     init {
         lua.load(JseBaseLib())
         lua.load(PackageLib())
         LoadState.install(lua)
         LuaC.install(lua)
-        lua.get("dofile").call(LuaValue.valueOf("${scriptDir.toFile().absolutePath}/${name}.lua"))
+        lua.get("dofile").call(LuaValue.valueOf(scriptPath.toFile().absolutePath))
     }
 
-    private val log = logger<Script>()
-
-    fun <R> action(players: List<Person?>, util: LuaInterface, func: (Return) -> R): R? {
-        return callForReturn("action", CoerceJavaToLua.coerce(players.toTypedArray()), util)?.let(func)
+    fun <R> action(actors: List<Person>, players: List<Person>, callback: (List<Action>) -> R): R? {
+        return callForActions("action", CoerceJavaToLua.coerce(players.toTypedArray()), actors, players).let(callback)
     }
 
-    fun <R> passive(action: Action, util: LuaInterface, func: (Return) -> R): R? {
-        return callForReturn("passive", CoerceJavaToLua.coerce(action), util)?.let(func)
+    fun <R> passive(
+        action: Action,
+        actors: List<Person>,
+        players: List<Person>,
+        dependencies: Set<Action>,
+        func: (List<Action>) -> R
+    ): R? {
+        return callForActions("passive", CoerceJavaToLua.coerce(action), actors, players, dependencies).let(func)
     }
 
-    fun type(players: List<Person>): String {
-        return call("type", CoerceJavaToLua.coerce(players.toTypedArray())).toString()
+    fun choice(
+        players: List<Person>,
+        actors: List<Person>,
+        func: String = "choice"
+    ): List<Choice> {
+        return callForChoices(func, players, actors)
     }
 
-    fun team(players: List<Person>): String {
-        return call("team", CoerceJavaToLua.coerce(players.toTypedArray())).toString()
+    fun type(players: List<Person>): List<String> {
+        return mutableListOf<String>().also {
+            call(
+                "type",
+                CoerceJavaToLua.coerce(players.toTypedArray()),
+                CoerceJavaToLua.coerce(TypeInterface(it))
+            )
+        }
     }
 
-    fun status(players: List<Person>, util: LuaInterface): GameState? {
+    fun team(players: List<Person>): String? {
+        val res = call("team", CoerceJavaToLua.coerce(players.toTypedArray()))
+        if (res == null) {
+            return null
+        }
+        return res.toString()
+    }
+
+    fun dawn() {
+        call("dawn", LuaValue.NIL)
+    }
+
+    fun dusk() {
+        call("dusk", LuaValue.NIL)
+    }
+
+    fun status(players: List<Person>): GameState? {
         return callForState(
             "status",
             CoerceJavaToLua.coerce(players.toTypedArray()),
-            util
+            StatusInterface()
         )
     }
 
-    private fun callForReturn(func: String, arg: LuaValue, util: LuaInterface): Return? {
-        val result = CoerceLuaToJava.coerce(
-            call(func, arg, util),
-            Return::class.java
-        )
-        if (result !is Return) {
-            log.error("Unexpected result type for lua call: ${result::class.qualifiedName}")
-            return null
+    private fun callForActions(
+        func: String,
+        arg: LuaValue,
+        actors: List<Person>,
+        players: List<Person>,
+        dependencies: Set<Action> = emptySet()
+    ): List<Action> {
+        return mutableListOf<Action>().also {
+            call(
+                func,
+                arg,
+                CoerceJavaToLua.coerce(
+                    ActionInterface(
+                        this,
+                        actors,
+                        players,
+                        it,
+                        dependencies
+                    )
+                )
+            )
         }
-        return result
     }
 
-    private fun callForState(func: String, arg: LuaValue, util: LuaInterface): GameState? {
+    private fun callForChoices(
+        func: String,
+        players: List<Person>,
+        actors: List<Person>
+    ): List<Choice> {
+        return mutableListOf<Choice>().also {
+            call(
+                func,
+                LuaValue.NIL,
+                CoerceJavaToLua.coerce(
+                    ChoiceInterface(this, players, actors, it)
+                )
+            )
+        }
+    }
+
+    private fun callForState(func: String, arg: LuaValue, util: StatusInterface): GameState? {
         val result = CoerceLuaToJava.coerce(
-            call(func, arg, util),
+            call(func, arg, CoerceJavaToLua.coerce(util)),
             GameState::class.java
         )
         if (result !is GameState) {
@@ -78,27 +140,57 @@ class Script(name: String, scriptDir: Path) {
         return result
     }
 
-    private fun call(func: String, arg: LuaValue, util: LuaInterface? = null): LuaValue? {
-        if (util != null) {
-            lua.set("UTIL", CoerceJavaToLua.coerce(util))
+    private fun call(func: String, arg: LuaValue, util: LuaValue = LuaValue.NIL): LuaValue? {
+        lua.set("UTIL", CoerceJavaToLua.coerce(util))
+        val function = lua.get(func)
+        if (function.isnil()) {
+            return null
         }
-        return lua.get(func).call(arg)
+        return function.call(arg)
     }
+
+    override fun store(value: Any): Int {
+        storage[storageIndex] = value
+        return storageIndex++
+    }
+
+    override fun stored(key: Int) = storage[key]
 }
 
-internal fun prepareScripts() {
-    val dir = Path.of(Config().path, "scripts")
-    if (!exists(dir)) {
-        createDirectories(dir)
-    }
-    if (!exists(scriptDir)) {
-        createDirectories(scriptDir)
-    }
-    scriptDir.toFile().listFiles()?.forEach { it.delete() }
-    dir.toFile()
-        .listFiles { file -> file.name.endsWith(".lua") }
-        ?.forEach {
-            val script = it.readText().replace("$", "UTIL:")
-            Paths.get(scriptDir.toFile().absolutePath, it.name).toFile().writeText(script)
+
+// todo relative paths for safety (deal with path traversal attacks like ./scripts/../../etc/passwd)
+internal fun prepareScripts(game: Game, scriptDir: String): Map<String, Path> {
+    try {
+        val dir = Path.of(scriptDir)
+        if (!exists(dir)) {
+            createDirectories(dir)
         }
+        val gameDir = tempDir.resolve(game.id.toString())
+        if (!exists(gameDir)) {
+            createDirectories(gameDir)
+        }
+        return dir.toFile()
+            .listFiles { file -> file.name.endsWith(".lua") }?.associate { file ->
+                val script = file.readText().replace("$", "UTIL:")
+                val path = Paths.get(gameDir.toFile().absolutePath, file.name).also {
+                    it.toFile().writeText(script)
+                }
+                file.name.removeSuffix(".lua") to path
+            } ?: emptyMap()
+    } catch (e: Exception) {
+        log.error("Failed to prepare script files", e)
+    }
+    return emptyMap()
+}
+
+internal fun deleteScripts(game: Game) {
+    try {
+        val gameDir = tempDir.resolve(game.id.toString())
+        if (exists(gameDir)) {
+            gameDir.toFile().listFiles()?.forEach { it.delete() }
+            gameDir.toFile().delete()
+        }
+    } catch (e: Exception) {
+        log.error("Failed to delete script files", e)
+    }
 }

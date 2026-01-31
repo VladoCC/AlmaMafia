@@ -1,14 +1,7 @@
--- Actions:
--- 1 - kill
--- 2 - heal
--- 3 - block
-
-function action(list)
-  return $KILL(list[1])
-end
-
-function passive(type)
-  return $ALLOW()
+function type(table)
+  if flip(table) then
+    	$SET("mafia")
+    end
 end
 
 function team(table)
@@ -16,13 +9,6 @@ function team(table)
   	return "mafia"
   end
   return "city"
-end
-
-function type(table)
-  if flip(table) then
-    	return "mafia"
-    end
-    return "none"
 end
 
 function flip(table)

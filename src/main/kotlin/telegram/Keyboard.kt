@@ -1,6 +1,7 @@
 package org.example.telegram
 
 import org.example.blankCommand
+import org.example.pretty
 
 internal fun <T : Any> numpadKeyboard(
     title: String,
@@ -20,9 +21,8 @@ internal fun <T : Any> numpadKeyboard(
             messageId
         )
 
-        val text = if (value == 0) "Не указано" else value.toString()
+        val text = if (value == 0) "Не указано" else value.pretty()
         row {
-            button(blankCommand)
             button(blankCommand named text)
             button(
                 numCommand named "⌫",

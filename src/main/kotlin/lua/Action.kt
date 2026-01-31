@@ -2,7 +2,7 @@ package org.example.lua
 
 import org.example.Person
 
-sealed class Action(val actors: List<Int>, val selection: List<Person>, val dependencies: Set<Action>) {
+sealed class Action(val actors: List<Person>, val selection: List<Person>, val dependencies: Set<Action>) {
     var skippedBy: Action? = null
     val createdAt: Long = System.currentTimeMillis()
     val master: Boolean = false
@@ -10,7 +10,7 @@ sealed class Action(val actors: List<Int>, val selection: List<Person>, val depe
     abstract fun events(): List<Event>
 }
 
-class InfoAction(val text: String, actors: List<Int>, targets: List<Person>, dependencies: Set<Action>)
+class InfoAction(val text: String, actors: List<Person>, targets: List<Person>, dependencies: Set<Action>)
     : Action(actors, targets, dependencies) {
     override fun desc(): String {
         return "Проверить"
@@ -21,21 +21,21 @@ class InfoAction(val text: String, actors: List<Int>, targets: List<Person>, dep
     }
 }
 
-sealed class TargetedAction(actors: List<Int>, targets: List<Person>, dependencies: Set<Action>)
+sealed class TargetedAction(actors: List<Person>, targets: List<Person>, dependencies: Set<Action>)
     : Action(actors, targets, dependencies)
 
-class KillAction(actors: List<Int>, targets: List<Person>, dependencies: Set<Action>)
+class KillAction(actors: List<Person>, targets: List<Person>, dependencies: Set<Action>)
     : TargetedAction(actors, targets, dependencies) {
     override fun desc(): String {
         return "Убить"
     }
 
     override fun events(): List<Event> {
-        return selection.filterNotNull().map { KillEvent(it.pos, actors) }
+        return selection.map { KillEvent(it.pos, actors) }
     }
 }
 
-class HealAction(actors: List<Int>, targets: List<Person>, dependencies: Set<Action>)
+class HealAction(actors: List<Person>, targets: List<Person>, dependencies: Set<Action>)
     : TargetedAction(actors, targets, dependencies) {
     override fun desc(): String {
         return "Вылечить"
@@ -46,7 +46,7 @@ class HealAction(actors: List<Int>, targets: List<Person>, dependencies: Set<Act
     }
 }
 
-class BlockAction(actors: List<Int>, targets: List<Person>, dependencies: Set<Action>)
+class BlockAction(actors: List<Person>, targets: List<Person>, dependencies: Set<Action>)
     : TargetedAction(actors, targets, dependencies) {
     override fun desc(): String {
         return "Заблокировать роль"
@@ -57,18 +57,18 @@ class BlockAction(actors: List<Int>, targets: List<Person>, dependencies: Set<Ac
     }
 }
 
-class SilenceAction(actors: List<Int>, targets: List<Person>, dependencies: Set<Action>)
+class SilenceAction(actors: List<Person>, targets: List<Person>, dependencies: Set<Action>)
     : TargetedAction(actors, targets, dependencies) {
     override fun desc(): String {
         return "Заблокировать обсуждение"
     }
 
     override fun events(): List<Event> {
-        return selection.filterNotNull().map { SilenceEvent(it.pos, actors) }
+        return selection.map { SilenceEvent(it.pos, actors) }
     }
 }
 
-class CancelAction(val canceled: Action, actors: List<Int>, targets: List<Person>, dependencies: Set<Action>)
+class CancelAction(val canceled: Action, actors: List<Person>, targets: List<Person>, dependencies: Set<Action>)
     : TargetedAction(actors, targets, dependencies) {
     override fun desc(): String {
         return "Отменить действие: ${canceled.desc()}"

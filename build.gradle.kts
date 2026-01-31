@@ -28,12 +28,16 @@ dependencies {
     implementation("org.mongodb:mongodb-driver-kotlin-coroutine:4.10.1")
     implementation("io.github.kotlin-telegram-bot.kotlin-telegram-bot:telegram:6.2.0")
     implementation("org.luaj:luaj-jse:3.0.1")
+
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.squareup.moshi:moshi:1.15.2")
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.2")
+    implementation("com.squareup.moshi:moshi-adapters:1.15.2")
 
     implementation("org.slf4j:slf4j-api:1.7.36")
-    implementation("ch.qos.logback:logback-classic:1.5.13")
-    implementation("ch.qos.logback:logback-core:1.5.13")
+    implementation("ch.qos.logback:logback-classic:1.5.19")
+    implementation("ch.qos.logback:logback-core:1.5.19")
     implementation("janino:janino:2.5.10")
 
     implementation("com.google.devtools.ksp:symbol-processing-api:2.1.0-1.0.29")

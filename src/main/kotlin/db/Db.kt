@@ -3,11 +3,20 @@ package org.example.db
 import com.google.common.cache.CacheBuilder
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
+import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.JsonReader
+import com.squareup.moshi.JsonWriter
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.squareup.moshi.Moshi
 import java.io.File
 import java.nio.file.Files.*
 import java.nio.file.Paths
+import java.text.SimpleDateFormat
 import java.time.Duration
+import java.util.Date
+import java.util.Locale
 import kotlin.reflect.KClass
+import kotlin.reflect.cast
 
 class Database(path: String) {
     val driver = Driver(path)
@@ -16,7 +25,11 @@ class Database(path: String) {
 }
 
 class Collection<K: Any, T: Any>(private val name: String, private val driver: Driver, private val type : KClass<out T>, private val keyFun: (T) -> K) {
-    private val gson = Gson()
+    private val moshi = Moshi.Builder()
+        .add(Date::class.java, DateAdapter().nullSafe())
+        .add(KotlinJsonAdapterFactory())
+        .build()
+    private val adapters = mutableMapOf<KClass<*>, JsonAdapter<*>>()
 
     companion object {
         inline operator fun <reified T: Any, K: Any> invoke(name: String, database: Driver, noinline keyFun: (T) -> K) = Collection(name, database, T::class, keyFun)
@@ -53,7 +66,7 @@ class Collection<K: Any, T: Any>(private val name: String, private val driver: D
 
     fun save(value: T) = save(keyFun(value), value)
 
-    private fun save(id: K, value: T) = driver.write(key(id), gson.toJson(value)).let { id }
+    private fun save(id: K, value: T) = driver.write(key(id), (adapter(type) as JsonAdapter<T>).toJson(value)).let { id }
 
     fun delete(id: K) = driver.delete(key(id))
 
@@ -62,11 +75,31 @@ class Collection<K: Any, T: Any>(private val name: String, private val driver: D
     private fun key(id: K) = "$name/$id"
 
     private fun fromString(str: String) = try {
-        gson.fromJson(str, type.java)
+        type.cast(adapter(type).fromJson(str))
     } catch (e: JsonSyntaxException) {
         e.printStackTrace()
         null
     }
+
+    private fun adapter(type: KClass<out T>) =
+        adapters.getOrPut(type) { moshi.adapter(type.java) }
+
+    class DateAdapter : JsonAdapter<Date>() {
+        private val format = SimpleDateFormat("MMM d, yyyy, h:mm:ss a", Locale.ENGLISH)
+
+        @Synchronized
+        override fun fromJson(reader: JsonReader): Date? =
+            reader.nextString()?.let { str ->
+                val norm = str.replace('\u202F', ' ')
+                return if (norm.isEmpty()) null else format.parse(norm)
+            }
+
+        @Synchronized
+        override fun toJson(writer: JsonWriter, value: Date?) {
+            writer.value(value?.let { format.format(it) })
+        }
+    }
+
 }
 
 class Driver(private val root: String) {

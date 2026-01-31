@@ -7,17 +7,17 @@ import org.bson.types.ObjectId
 import org.example.*
 import org.example.lua.BlockAction
 import org.example.lua.InfoAction
-import org.example.lua.LuaInterface
 import org.example.lua.NoneAction
+import org.example.lua.deleteScripts
 import org.example.telegram.*
 import org.example.telegram.showLobbyMenu
 import org.example.telegram.showNightRoleMenu
 import org.example.telegram.showPlayerLobbyMenu
 import java.util.*
 
-internal fun initGame(game: Game?, path: String, chatId: Long, messageId: Long, bot: Bot) {
+internal fun initGame(game: Game?, chatId: Long, messageId: Long, bot: Bot) {
     if (game != null) {
-        updateSetup(path, game)
+        updateSetup(game)
         val chat = ChatId.fromId(chatId)
         accounts.update(chatId) {
             state = AccountState.Host
@@ -52,7 +52,6 @@ fun startGame(
 
             val roleMap = getRoles(game)
             val pairs = pairings.find { gameId == game.id }
-            val orderList = orders.find { gameId == game.id }
             val typeList = types.find { gameId == game.id }
             val mode = modes.find { gameId == game.id }.singleOrNull()?.mode ?: Mode.OPEN
             val town = Town(
@@ -66,13 +65,13 @@ fun startGame(
                             con.name(),
                             role,
                             role.defaultTeam,
+                            listOf(role.defaultType),
                             con.id
                         )
                     } else {
                         null
                     }
                 },
-                orderList.sortedBy { it.pos }.map { it.type },
                 typeList.associateBy { it.name },
                 mode
             )
@@ -161,7 +160,6 @@ internal fun deleteGame(game: Game, bot: Bot) {
     resetGame(game, bot)
 
     kicks.deleteMany { gameId == game.id }
-    orders.deleteMany { gameId == game.id }
     setups.deleteMany { gameId == game.id }
     modes.deleteMany { gameId == game.id }
     roles.deleteMany { gameId == game.id }
@@ -187,11 +185,13 @@ fun resetGame(
     towns.remove(game.id)
     gameShares.deleteMany { gameId == game.id }
     messageLinks.deleteMany { gameId == game.id }
+    winSelections.deleteMany { gameId == game.id }
     deleteNightPlayerMenus(game, bot)
     game.nightHostMessage?.let { msg ->
         bot.deleteMessage(ChatId.fromId(msg.chatId), msg.messageId)
         nightHostMessages.delete(msg.chatId)
     }
+    deleteScripts(game)
 }
 
 internal fun deleteNightPlayerMenus(game: Game, bot: Bot) {
@@ -205,9 +205,14 @@ internal fun deleteNightPlayerMenus(game: Game, bot: Bot) {
     nightPlayerMessages.deleteMany { gameId == game.id }
     val actions = autoNightActions.find { gameId == game.id }.map { it.id }.toSet()
     autoNightSelections.deleteMany { actionId in actions }
-    autoNightActors.deleteMany { actionId in actions }
+    val links = actorActionLinks.find { actionId in actions }
+    val actors = links.map { it.actorId }.toSet()
+    autoNightActors.deleteMany { id in actors }
     actions.forEach {
         autoNightActions.delete(it)
+    }
+    links.forEach {
+        actorActionLinks.delete(it.id)
     }
 }
 
@@ -216,6 +221,11 @@ private fun sendPlayersToMenu(game: Game, bot: Bot) {
     connections.find { gameId == game.id }.forEach {
         if (it.bot) {
             return@forEach
+        }
+        it.player?.let { player ->
+            if (player.menuMessageId != -1L) {
+                bot.deleteMessage(ChatId.fromId(player.chatId), player.menuMessageId)
+            }
         }
         accounts.update(it.playerId, resetAccount)
         showMainMenu(
@@ -296,16 +306,40 @@ internal fun setPlayerNum(
             Date(System.currentTimeMillis() + sendPendingAfterSec * 1000)
         )
     )
+    val count = game.connectionList.size + 10
+    val countLen = count.toString().length
+    val new = if (pos > count)
+        pos.toString()
+            .let { it.dropLast(it.length - countLen) }
+            .toInt()
+            .let {
+                if (it < count) it else it / 10
+            }
+    else null
+    val chat = ChatId.fromId(chatId)
     val res = bot.sendMessage(
-        ChatId.fromId(chatId),
-        Const.Message.numSaved
+        chat,
+        if (new == null) Const.Message.numSaved else "Вы уверены, что хотите ввести номер ${pos.pretty()}?\nВозможно вы имели ввиду ${new.pretty()}"
     )
     if (res.isSuccess) {
+        val msgId = res.get().messageId
+        if (new != null) {
+            bot.editMessageReplyMarkup(
+                chat,
+                msgId,
+                replyMarkup = inlineKeyboard {
+                    row {
+                        button(confirmNumCommand, con.id, msgId)
+                        button(deleteMsgCommand named "Закрыть", msgId)
+                    }
+                }
+            )
+        }
         timedMessages.save(
             TimedMessage(
                 ObjectId(),
                 chatId,
-                res.get().messageId,
+                msgId,
                 Date(System.currentTimeMillis() + deleteNumUpdateMsgAfterSec * 1000)
             )
         )
@@ -348,14 +382,6 @@ internal fun joinGame(
     }
 }
 
-internal fun desc(player: Person?, sep: String = ". ", icons: Boolean = true, noRoles: Boolean = false) = if (player != null)
-    "${player.pos}$sep" +
-            (if (!icons) "" else if (player.protected) "⛑️" else if (player.alive) "" else "☠️") +
-            (if (!icons) "" else if (player.fallCount > 0) numbers[player.fallCount % numbers.size] else "") +
-            " ${player.name}" +
-            if (noRoles) "" else " (${player.roleData.displayName})"
-else "Неизвестный игрок"
-
 internal fun nightRoleDesc(wake: Wake): String {
     val players = wake.players.sortedWith(compareBy({ -it.roleData.priority }, { it.pos }))
     val alive = players.filter { it.alive }
@@ -363,7 +389,7 @@ internal fun nightRoleDesc(wake: Wake): String {
         alive.firstOrNull()?.roleData?.desc ?: "Все персонажи мертвы."
     val text = "Просыпаются: " + players.map { it.roleData }.distinctBy { it.name }.sortedBy { -it.priority }
         .joinToString(", ") { it.displayName } + "\n" +
-            "Игроки: " + alive.joinToString(", ") { desc(it, " - ") } + "\n" +
+            "Игроки: " + alive.joinToString(", ") { it.desc(" - ") } + "\n" +
             "Действие: " + action +
             if (alive.isNotEmpty()) "\n\nВыберите ${wake.type.choice} игроков." else ""
     return text
@@ -431,33 +457,31 @@ internal fun nightSelection(
 internal fun executeNightAction(
     town: Town,
     wake: Wake,
-    hideRoles: Boolean = false
+    showRoles: Boolean
 ): String {
     val players = wake.selections.mapNotNull { town.playerMap[it] }
-    val script = scripts[town.gameId]?.get(wake.players.first().roleData.name)
+    val script = scripts[town.gameId]?.get(wake.type.name)
     val priority =
         wake.players.filter { it.alive }.maxOfOrNull { it.roleData.priority } ?: 1
     val actors =
         wake.players.filter { it.roleData.priority == priority && it.alive }
-            .map { it.pos }
     if (script != null) {
         try {
-            return script.action(players, LuaInterface(actors, players, town)) { ret ->
+            return script.action(actors, players) { actions ->
                 val actorsSet = actors.toSet()
-                val text = ret.actions.map { res ->
+                val text = actions.map { res ->
                     val start =
                         res.desc() + " " + res.selection.joinToString {
-                            desc(
-                                it,
+                            it.desc(
                                 " - ",
-                                noRoles = hideRoles
+                                roles = showRoles
                             )
                         } + ": "
                     val text = if (res is InfoAction) {
                         val blocker =
                             town.actions.firstOrNull {
                                 it is BlockAction
-                                        && it.selection.map { person -> person.pos }.toSet()
+                                        && it.selection.toSet()
                                     .intersect(actorsSet).isNotEmpty()
                             }
                         val result = res.text
@@ -480,18 +504,15 @@ internal fun executeNightAction(
                             val action = list[index]
                             action.selection.forEach {
                                 try {
-                                    val pos = it.pos
                                     val lua =
-                                        scripts[town.gameId]?.get(town.playerMap[pos]?.roleData?.name)
+                                        scripts[town.gameId]?.get(town.playerMap[it.pos]?.roleData?.name)
                                     lua?.passive(
-                                        action, LuaInterface(
-                                            listOf(pos),
-                                            wake.players,
-                                            town,
-                                            action.dependencies + action
-                                        )
+                                        action,
+                                        listOf(it),
+                                        wake.players,
+                                        action.dependencies + action
                                     ) { passive ->
-                                        for (result in passive.actions) {
+                                        for (result in passive) {
                                             if (result !is NoneAction) {
                                                 list.add(result)
                                             }
@@ -511,11 +532,13 @@ internal fun executeNightAction(
                     }
                     return@map text
                 }.filterNotNull().joinToString("\n")
-                return@action if (ret.actions.isNotEmpty()) text else Const.Message.roleDidNothing
-            }?: "Ошибка выполнения действия роли."
+                return@action if (actions.isNotEmpty()) text else Const.Message.roleDidNothing
+            } ?: "Ошибка выполнения действия роли."
         } catch (e: Exception) {
             log.error("Unable to process night action, script: $script, targets: $players", e)
         }
+    } else {
+        log.error("Unable to process night action, script not found for type: ${wake.type.name}, wake: $wake")
     }
     return "Ошибка выполнения действия роли."
 }
@@ -523,6 +546,7 @@ internal fun executeNightAction(
 internal fun skipNightRole(town: Town, chatId: Long, messageId: Long, bot: Bot) {
     if (town.index < town.night.size) {
         town.night[town.index].selections.clear()
+        town.night[town.index].status = WakeStatus.skipped()
     }
     town.index++
     showNightRoleMenu(town, chatId, bot, messageId)

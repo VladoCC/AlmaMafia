@@ -1,8 +1,3 @@
--- Actions:
--- 1 - kill
--- 2 - heal
--- 3 - block
-
 cop = false
 
 function action(list)
@@ -12,11 +7,7 @@ function action(list)
     else
       text = "Стукач не нашел комиссара"
     end
-    return $INFO(text)
-end
-
-function passive(type)
-  return $ALLOW()
+    $INFO(text)
 end
 
 function team(table)
@@ -28,7 +19,10 @@ end
 
 function type(table)
   if cop then
-    	return "mafia"
+    	$SET("snitch_civil")
+        $SET("mafia")
+    else
+    $SET("snitch")
+    $SET("mafia")
     end
-    return "mafia,snitch"
 end

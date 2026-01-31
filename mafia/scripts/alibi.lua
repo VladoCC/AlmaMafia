@@ -1,31 +1,23 @@
--- Actions:
--- 1 - kill
--- 2 - heal
--- 3 - block
-
 selected = -1
 actionId = -1
 
 function action(list)
   selected = $STORE(list[1])
-  res = $HEAL(list[1])
-  actionId = $STORE(res)
-  return res
+  actionId = $STORE($HEAL(list[1]))
+end
+
+function dusk()
+    selected = -1
+    actionId = -1
 end
 
 function passive(type)
   if $IS_KILL(type) then
-        kill = $KILL($STORED(selected))
-        cancel = $CANCEL($STORED(actionId))
-        return $TWO(kill, cancel)
+        $KILL($STORED(selected))
+        $CANCEL($STORED(actionId))
     end
-    return $ALLOW()
 end
 
-function team(table)
-  return "city"
-end
-
-function type(table)
-  return "alibi"
+function choice()
+    $PLAYERS():ALIVE():EXCLUDE_ACTORS():COMMIT()
 end

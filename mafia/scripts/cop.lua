@@ -1,8 +1,3 @@
--- Actions:
--- 1 - kill
--- 2 - heal
--- 3 - block
-
 don = false
 maniac = false
 
@@ -18,17 +13,5 @@ function action(list)
   if list[1]:getRole() == "maniac" then
     maniac = true
   end
-  return $INFO(text)
-end
-
-function passive(type)
-  return $ALLOW()
-end
-
-function team(table)
-  return "city"
-end
-
-function type(table)
-  return "cop"
+  $INFO(text)
 end

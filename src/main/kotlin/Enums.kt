@@ -26,7 +26,8 @@ enum class CheckOption(val key: String, val display: String) {
     KEEP_DETAILS("keep_details", "Оставаться в меню деталей после нажатия кнопки"),
     CHECK_ROLE("check_role", "Проверять роль ночью"),
     ONE_MSG_PLAYER_INFO("one_msg_player_info", "Роль и инфо об игре в одном сообщении"),
-    SHOW_TOWN("show_town", "Ведущий может показать список ролей игроку")
+    SHOW_TOWN("show_town", "Ведущий может показать список ролей игроку"),
+    SHOW_STATS("show_stats", "Игроки могут открыть меню статистики")
 }
 
 // Uses camel case to shorten names in telegram payloads
